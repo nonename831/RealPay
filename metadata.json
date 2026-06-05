@@ -1,0 +1,6 @@
+{
+  "name": "RealPay 实时薪水战报",
+  "description": "职场薪酬实时计算、摸鱼效率统计与心愿存钱存单系统",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
