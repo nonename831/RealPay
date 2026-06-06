@@ -126,6 +126,7 @@ body {
     opacity: 0;
     transform: translateY(8px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -193,9 +194,12 @@ body {
 }
 
 @keyframes blink {
-  0%, 100% {
+
+  0%,
+  100% {
     opacity: 1;
   }
+
   50% {
     opacity: 0.3;
   }
@@ -365,9 +369,11 @@ body {
   0% {
     transform: scale(1);
   }
+
   50% {
     transform: scale(1.03);
   }
+
   100% {
     transform: scale(1);
   }
@@ -647,6 +653,7 @@ body {
   border-radius: 14px;
   padding: 14px 16px;
   margin-bottom: 1rem;
+  transition: border-color 0.3s ease;
 }
 
 .sg-head {
@@ -1252,11 +1259,11 @@ body {
   transition: transform 0.25s;
 }
 
-.toggle-wrap input:checked + .toggle-track {
+.toggle-wrap input:checked+.toggle-track {
   background: #7c3aed;
 }
 
-.toggle-wrap input:checked + .toggle-track::after {
+.toggle-wrap input:checked+.toggle-track::after {
   content: "🐟";
   transform: translateX(25px);
 }
@@ -1397,7 +1404,7 @@ body {
 }
 
 .eff-label {
-  font-size: 11px;
+  font-size: 12px;
   font-family: var(--mono);
   color: var(--muted);
   letter-spacing: 0.12em;
@@ -1406,7 +1413,7 @@ body {
 }
 
 .eff-pct {
-  font-size: 13px;
+  font-size: 14px;
   font-family: var(--mono);
   font-weight: 700;
   color: var(--green);
@@ -1459,14 +1466,14 @@ body {
 
 .eff-stat-v {
   font-family: var(--mono);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
   color: var(--text);
   letter-spacing: -0.02em;
 }
 
 .eff-stat-l {
-  font-size: 9px;
+  font-size: 10px;
   color: var(--muted);
   margin-top: 3px;
   font-family: var(--mono);
@@ -1906,7 +1913,8 @@ body {
   font-size: 11px;
   font-family: var(--mono);
   color: var(--muted2);
-  margin-top: 1rem;
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
   letter-spacing: 0.06em;
 }
 

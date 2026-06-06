@@ -2,6 +2,16 @@ import { useState } from "react";
 import { AppSettings, MonthHistory } from "../types";
 import { fmt12, toMins } from "../utils/calculations";
 
+const WEEKDAY_OPTIONS = [
+  { value: 0, label: "日" },
+  { value: 1, label: "一" },
+  { value: 2, label: "二" },
+  { value: 3, label: "三" },
+  { value: 4, label: "四" },
+  { value: 5, label: "五" },
+  { value: 6, label: "六" },
+];
+
 interface SettingsManagerProps {
   settings: AppSettings;
   onUpdateSettings: (newSettings: AppSettings) => void;
@@ -23,7 +33,7 @@ export default function SettingsManager({
 
   const [showSavedIndicator, setShowSavedIndicator] = useState(false);
 
-  const handleSettingChange = (key: keyof AppSettings, value: string | number) => {
+  const handleSettingChange = (key: keyof AppSettings, value: string | number | number[]) => {
     onUpdateSettings({
       ...settings,
       [key]: value,
@@ -75,7 +85,13 @@ export default function SettingsManager({
   return (
     <div className="space-y-4">
       {/* 1. Payroll / Works configs */}
-      <div className="sec-head">薪资设置</div>
+      <div className="sec-head flex items-center justify-between">
+        <span>薪资设置</span>
+        <div className={`save-indicator ${showSavedIndicator ? "show" : ""}`} style={{ marginTop: 0 }}>
+          <span className="si-dot" />
+          <span>已自动保存</span>
+        </div>
+      </div>
       <div className="settings-card">
         <div className="s-grid mb-3">
           <div className="s-field">
@@ -103,21 +119,65 @@ export default function SettingsManager({
         <div className="s-grid mb-3">
           <div className="s-field">
             <label htmlFor="start-time">上班时间</label>
-            <input
-              type="time"
-              id="start-time"
-              value={settings.startTime}
-              onChange={(e) => handleSettingChange("startTime", e.target.value)}
-            />
+            <div className="relative flex items-center">
+              <input
+                type="text"
+                readOnly
+                value={settings.startTime}
+                style={{
+                  padding: "11px 32px 11px 12px",
+                  background: "var(--surface2)",
+                  border: "1px solid var(--border)",
+                  borderRadius: "9px",
+                  color: "var(--text)",
+                  fontFamily: "var(--mono)",
+                  fontSize: "15px",
+                  fontWeight: 500,
+                  outline: "none",
+                  width: "100%",
+                }}
+              />
+              <span className="absolute right-3.5 pointer-events-none text-neutral-500 text-xs text-[10px]">▼</span>
+              <input
+                type="time"
+                id="start-time"
+                value={settings.startTime}
+                onChange={(e) => handleSettingChange("startTime", e.target.value)}
+                className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                style={{ fontSize: "16px" }}
+              />
+            </div>
           </div>
           <div className="s-field">
             <label htmlFor="end-time">下班时间</label>
-            <input
-              type="time"
-              id="end-time"
-              value={settings.endTime}
-              onChange={(e) => handleSettingChange("endTime", e.target.value)}
-            />
+            <div className="relative flex items-center">
+              <input
+                type="text"
+                readOnly
+                value={settings.endTime}
+                style={{
+                  padding: "11px 32px 11px 12px",
+                  background: "var(--surface2)",
+                  border: "1px solid var(--border)",
+                  borderRadius: "9px",
+                  color: "var(--text)",
+                  fontFamily: "var(--mono)",
+                  fontSize: "15px",
+                  fontWeight: 500,
+                  outline: "none",
+                  width: "100%",
+                }}
+              />
+              <span className="absolute right-3.5 pointer-events-none text-neutral-500 text-xs text-[10px]">▼</span>
+              <input
+                type="time"
+                id="end-time"
+                value={settings.endTime}
+                onChange={(e) => handleSettingChange("endTime", e.target.value)}
+                className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                style={{ fontSize: "16px" }}
+              />
+            </div>
           </div>
         </div>
 
@@ -149,10 +209,33 @@ export default function SettingsManager({
           </div>
         </div>
 
-        {/* Visual saved notifier */}
-        <div className={`save-indicator ${showSavedIndicator ? "show" : ""}`}>
-          <span className="si-dot" />
-          <span>已自动保存</span>
+        <div className="mt-2.5 pt-1.5">
+          <label className="text-[11px] text-neutral-400 font-mono block mb-2 uppercase tracking-wide">工作日设置 (点选)</label>
+          <div className="grid grid-cols-7 gap-1.5">
+            {WEEKDAY_OPTIONS.map((day) => {
+              const active = (settings.workWeekdays || [1, 2, 3, 4, 5]).includes(day.value);
+              return (
+                <button
+                  key={day.value}
+                  type="button"
+                  onClick={() => {
+                    const current = settings.workWeekdays || [1, 2, 3, 4, 5];
+                    const next = current.includes(day.value)
+                      ? current.filter((v) => v !== day.value)
+                      : [...current, day.value].sort();
+                    handleSettingChange("workWeekdays", next);
+                  }}
+                  className={`py-2 rounded-xl border font-mono text-center text-sm font-bold transition-all duration-200 cursor-pointer ${active
+                      ? "bg-emerald-500/15 border-emerald-500/50 text-emerald-400"
+                      : "bg-[#1b1b1b]/60 border-neutral-800/80 text-neutral-400 hover:border-neutral-700 hover:text-neutral-200"
+                    }`}
+                  style={{ touchAction: "manipulation" }}
+                >
+                  <div>{day.label}</div>
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
 
@@ -162,21 +245,63 @@ export default function SettingsManager({
         <div className="t-grid">
           <div className="t-field">
             <label htmlFor="lunch-start">开始</label>
-            <input
-              type="time"
-              id="lunch-start"
-              value={settings.lunchStart}
-              onChange={(e) => handleSettingChange("lunchStart", e.target.value)}
-            />
+            <div className="relative flex items-center">
+              <input
+                type="text"
+                readOnly
+                value={settings.lunchStart}
+                style={{
+                  padding: "10px 32px 10px 12px",
+                  background: "var(--surface2)",
+                  border: "1px solid var(--border)",
+                  borderRadius: "9px",
+                  color: "var(--text)",
+                  fontFamily: "var(--mono)",
+                  fontSize: "17px",
+                  outline: "none",
+                  width: "100%",
+                }}
+              />
+              <span className="absolute right-3.5 pointer-events-none text-neutral-500 text-[10px]">▼</span>
+              <input
+                type="time"
+                id="lunch-start"
+                value={settings.lunchStart}
+                onChange={(e) => handleSettingChange("lunchStart", e.target.value)}
+                className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                style={{ fontSize: "16px" }}
+              />
+            </div>
           </div>
           <div className="t-field">
             <label htmlFor="lunch-end">结束</label>
-            <input
-              type="time"
-              id="lunch-end"
-              value={settings.lunchEnd}
-              onChange={(e) => handleSettingChange("lunchEnd", e.target.value)}
-            />
+            <div className="relative flex items-center">
+              <input
+                type="text"
+                readOnly
+                value={settings.lunchEnd}
+                style={{
+                  padding: "10px 32px 10px 12px",
+                  background: "var(--surface2)",
+                  border: "1px solid var(--border)",
+                  borderRadius: "9px",
+                  color: "var(--text)",
+                  fontFamily: "var(--mono)",
+                  fontSize: "17px",
+                  outline: "none",
+                  width: "100%",
+                }}
+              />
+              <span className="absolute right-3.5 pointer-events-none text-neutral-500 text-[10px]">▼</span>
+              <input
+                type="time"
+                id="lunch-end"
+                value={settings.lunchEnd}
+                onChange={(e) => handleSettingChange("lunchEnd", e.target.value)}
+                className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                style={{ fontSize: "16px" }}
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -187,19 +312,61 @@ export default function SettingsManager({
         <div className="t-grid">
           <div className="t-field">
             <label>查询起点</label>
-            <input
-              type="time"
-              value={queryStart}
-              onChange={(e) => setQueryStart(e.target.value)}
-            />
+            <div className="relative flex items-center">
+              <input
+                type="text"
+                readOnly
+                value={queryStart}
+                style={{
+                  padding: "10px 32px 10px 12px",
+                  background: "var(--surface2)",
+                  border: "1px solid var(--border)",
+                  borderRadius: "9px",
+                  color: "var(--text)",
+                  fontFamily: "var(--mono)",
+                  fontSize: "17px",
+                  outline: "none",
+                  width: "100%",
+                }}
+              />
+              <span className="absolute right-3.5 pointer-events-none text-neutral-500 text-[10px]">▼</span>
+              <input
+                type="time"
+                value={queryStart}
+                onChange={(e) => setQueryStart(e.target.value)}
+                className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                style={{ fontSize: "16px" }}
+              />
+            </div>
           </div>
           <div className="t-field">
             <label>查询终点</label>
-            <input
-              type="time"
-              value={queryEnd}
-              onChange={(e) => setQueryEnd(e.target.value)}
-            />
+            <div className="relative flex items-center">
+              <input
+                type="text"
+                readOnly
+                value={queryEnd}
+                style={{
+                  padding: "10px 32px 10px 12px",
+                  background: "var(--surface2)",
+                  border: "1px solid var(--border)",
+                  borderRadius: "9px",
+                  color: "var(--text)",
+                  fontFamily: "var(--mono)",
+                  fontSize: "17px",
+                  outline: "none",
+                  width: "100%",
+                }}
+              />
+              <span className="absolute right-3.5 pointer-events-none text-neutral-500 text-[10px]">▼</span>
+              <input
+                type="time"
+                value={queryEnd}
+                onChange={(e) => setQueryEnd(e.target.value)}
+                className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                style={{ fontSize: "16px" }}
+              />
+            </div>
           </div>
         </div>
 

@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { AppSettings, SlackSession, SavingsGoal, MonthHistory, PunchRecord } from "./types";
 import { storage } from "./utils/storage";
-import { computeCurrentEarnings, toMins, fmt12, fmt12Full } from "./utils/calculations";
+import { computeCurrentEarnings, toMins, fmt12, fmt12Full, isSystem12Hour } from "./utils/calculations";
 
 // Component imports
 import WeatherWidget from "./components/WeatherWidget";
@@ -11,6 +11,7 @@ import SlackingManager from "./components/SlackingManager";
 import GoodsList from "./components/GoodsList";
 import ShareModal from "./components/ShareModal";
 import SettingsManager from "./components/SettingsManager";
+import AttendanceCalendar from "./components/AttendanceCalendar";
 
 // Icons
 import { Compass, User, Settings, Sparkles, Share2, Award, ArrowUpRight, ChevronRight, HelpCircle } from "lucide-react";
@@ -20,10 +21,14 @@ const SETTINGS_KEY = "realpay_settings_v3";
 const SLACK_KEY = "realpay_slack_v3";
 const SAVINGS_KEY = "realpay_savings_v3";
 const PUNCH_KEY = "realpay_punch_v3";
+const ALL_PUNCHES_KEY = "realpay_all_punches_v3";
 const HISTORY_KEY = "realpay_history_v3";
 const WEEK_KEY = "realpay_week_v3";
 const HOLIDAY_KEY = "realpay_holiday_v3";
 const LAST_DATE_KEY = "realpay_last_date_v3";
+const SLACKING_ACTIVE_KEY = "realpay_slacking_active_v3";
+const SLACK_START_KEY = "realpay_slack_start_v3";
+const SLACK_GOAL_MINS_KEY = "realpay_slack_goal_mins_v3";
 
 const DEFAULT_SETTINGS: AppSettings = {
   monthlySalary: 4500,
@@ -33,21 +38,29 @@ const DEFAULT_SETTINGS: AppSettings = {
   lunchStart: "13:00",
   lunchEnd: "14:00",
   overtimeRate: 1.5,
+  workWeekdays: [1, 2, 3, 4, 5],
 };
 
 const formatAmPm = (date: Date | null, defaultStr: string): string => {
+  const use12H = isSystem12Hour();
   if (!date) {
     if (!defaultStr) return "--:--";
     const [hStr, mStr] = defaultStr.split(":");
     const h = parseInt(hStr, 10);
     const m = parseInt(mStr, 10);
     if (isNaN(h) || isNaN(m)) return defaultStr;
+    if (!use12H) {
+      return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+    }
     const period = h >= 12 ? "PM" : "AM";
     const displayH = h % 12 || 12;
     return `${String(displayH).padStart(2, "0")}:${String(m).padStart(2, "0")} ${period}`;
   }
   const h = date.getHours();
   const m = String(date.getMinutes()).padStart(2, "0");
+  if (!use12H) {
+    return `${String(h).padStart(2, "0")}:${m}`;
+  }
   const period = h >= 12 ? "PM" : "AM";
   const displayH = h % 12 || 12;
   return `${String(displayH).padStart(2, "0")}:${m} ${period}`;
@@ -57,31 +70,46 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<"home" | "slack" | "settings">("home");
 
   // Core App States
-  const [settings, setSettings] = useState<AppSettings>(() => 
-    storage.get<AppSettings>(SETTINGS_KEY, DEFAULT_SETTINGS)
-  );
+  const [settings, setSettings] = useState<AppSettings>(() => {
+    const loaded = storage.get<AppSettings>(SETTINGS_KEY, DEFAULT_SETTINGS);
+    if (!loaded.workWeekdays) {
+      loaded.workWeekdays = [1, 2, 3, 4, 5];
+    }
+    return loaded;
+  });
 
-  const [slackSessions, setSlackSessions] = useState<SlackSession[]>(() => 
+  const [slackSessions, setSlackSessions] = useState<SlackSession[]>(() =>
     storage.get<SlackSession[]>(SLACK_KEY, [])
   );
 
-  const [slacking, setSlacking] = useState(false);
-  const [slackStart, setSlackStart] = useState<Date | null>(null);
-  const [slackGoalMins, setSlackGoalMins] = useState<number>(30);
+  const [slacking, setSlacking] = useState<boolean>(() =>
+    storage.get<boolean>(SLACKING_ACTIVE_KEY, false)
+  );
+  const [slackStart, setSlackStart] = useState<Date | null>(() => {
+    const saved = storage.get<string | null>(SLACK_START_KEY, null);
+    return saved ? new Date(saved) : null;
+  });
+  const [slackGoalMins, setSlackGoalMins] = useState<number>(() =>
+    storage.get<number>(SLACK_GOAL_MINS_KEY, 30)
+  );
 
-  const [savingsGoals, setSavingsGoals] = useState<SavingsGoal[]>(() => 
+  const [savingsGoals, setSavingsGoals] = useState<SavingsGoal[]>(() =>
     storage.get<SavingsGoal[]>(SAVINGS_KEY, [])
   );
 
-  const [punchRecord, setPunchRecord] = useState<PunchRecord | null>(() => 
+  const [punchRecord, setPunchRecord] = useState<PunchRecord | null>(() =>
     storage.get<PunchRecord | null>(PUNCH_KEY, null)
   );
 
-  const [history, setHistory] = useState<MonthHistory[]>(() => 
+  const [allPunches, setAllPunches] = useState<PunchRecord[]>(() =>
+    storage.get<PunchRecord[]>(ALL_PUNCHES_KEY, [])
+  );
+
+  const [history, setHistory] = useState<MonthHistory[]>(() =>
     storage.get<MonthHistory[]>(HISTORY_KEY, [])
   );
 
-  const [weeklyData, setWeeklyData] = useState<{ [date: string]: number }>(() => 
+  const [weeklyData, setWeeklyData] = useState<{ [date: string]: number }>(() =>
     storage.get<{ [date: string]: number }>(WEEK_KEY, {})
   );
 
@@ -94,6 +122,8 @@ export default function App() {
 
   // Web Share or Share Dialog trigger
   const [showShareModal, setShowShareModal] = useState(false);
+
+  const [isPopping, setIsPopping] = useState(false);
 
   // Formatted date string helpers
   const getTodayStr = (d = new Date()) => {
@@ -111,8 +141,21 @@ export default function App() {
       if (isH === getTodayStr()) {
         setIsHoliday(true);
       }
-    } catch {}
+    } catch { }
   }, []);
+
+  // Auto-save active slacking states to localStorage
+  useEffect(() => {
+    storage.set(SLACKING_ACTIVE_KEY, slacking);
+  }, [slacking]);
+
+  useEffect(() => {
+    storage.set(SLACK_START_KEY, slackStart ? slackStart.toISOString() : null);
+  }, [slackStart]);
+
+  useEffect(() => {
+    storage.set(SLACK_GOAL_MINS_KEY, slackGoalMins);
+  }, [slackGoalMins]);
 
   // Sync punch timestamps
   useEffect(() => {
@@ -151,11 +194,11 @@ export default function App() {
           // Compile and Archiving previous month details
           const completedWorkDays = settings.workDays; // average work days
           const baseSalary = settings.monthlySalary;
-          
+
           // Calculate historical month aggregates
           const totalSlackMins = slackSessions.reduce((sum, s) => sum + s.mins, 0);
           const totalSlackEarned = slackSessions.reduce((sum, s) => sum + s.earned, 0);
-          
+
           // Estimate base earned
           const archivedBase = baseSalary;
           const archivedOT = 0; // simple estimate at transition
@@ -180,10 +223,16 @@ export default function App() {
         setPunchRecord(null);
         storage.set(PUNCH_KEY, null);
 
+        // Terminate and clear active slacking when day cross-over occurs
+        setSlacking(false);
+        setSlackStart(null);
+        storage.set(SLACKING_ACTIVE_KEY, false);
+        storage.set(SLACK_START_KEY, null);
+
         setIsHoliday(false);
         try {
           localStorage.removeItem(HOLIDAY_KEY);
-        } catch {}
+        } catch { }
       }
 
       localStorage.setItem(LAST_DATE_KEY, todayString);
@@ -196,7 +245,21 @@ export default function App() {
   // Standard live clock tick
   useEffect(() => {
     const timer = setInterval(() => {
-      setNow(new Date());
+      const dNow = new Date();
+      setNow(dNow);
+
+      // Check for real-time day rollover (cross-day) to auto-clear
+      try {
+        const todayString = `${dNow.getFullYear()}-${String(dNow.getMonth() + 1).padStart(2, "0")}-${String(dNow.getDate()).padStart(2, "0")}`;
+        const lastLoadedDate = localStorage.getItem(LAST_DATE_KEY);
+        if (lastLoadedDate && lastLoadedDate !== todayString) {
+          // A day crossover was detected while the app was running!
+          // Force page reload to trigger clean mount-time rollover archiving and state cleanup!
+          window.location.reload();
+        }
+      } catch (err) {
+        console.error("Error checking date rollover in timer:", err);
+      }
     }, 1000);
 
     return () => clearInterval(timer);
@@ -208,6 +271,69 @@ export default function App() {
     storage.set(SETTINGS_KEY, newSettings);
   };
 
+  // Helper to synchronize individual punches into the perpetual month record list
+  const syncPunchWithAllPunches = (rec: PunchRecord | null) => {
+    const todayStr = getTodayStr();
+    let updated = [...allPunches];
+    if (rec && rec.inTime) {
+      const idx = updated.findIndex((p) => p.date === todayStr);
+      if (idx >= 0) {
+        updated[idx] = rec;
+      } else {
+        updated.push(rec);
+      }
+    } else {
+      updated = updated.filter((p) => p.date !== todayStr);
+    }
+    setAllPunches(updated);
+    storage.set(ALL_PUNCHES_KEY, updated);
+  };
+
+  const handleUpdateAllPunches = (dateStr: string, inStr: string | null, outStr: string | null) => {
+    let computedInTime: Date | null = null;
+    let computedOutTime: Date | null = null;
+
+    if (inStr) {
+      computedInTime = new Date(dateStr);
+      const [h, m] = inStr.split(":").map(Number);
+      computedInTime.setHours(h || 9, m || 0, 0, 0);
+    }
+
+    if (outStr) {
+      computedOutTime = new Date(dateStr);
+      const [h, m] = outStr.split(":").map(Number);
+      computedOutTime.setHours(h || 18, m || 0, 0, 0);
+    }
+
+    const rec: PunchRecord = {
+      date: dateStr,
+      inTime: computedInTime ? computedInTime.toISOString() : null,
+      outTime: computedOutTime ? computedOutTime.toISOString() : null,
+    };
+
+    let updated = [...allPunches];
+    if (inStr) {
+      const idx = updated.findIndex((p) => p.date === dateStr);
+      if (idx >= 0) {
+        updated[idx] = rec;
+      } else {
+        updated.push(rec);
+      }
+    } else {
+      updated = updated.filter((p) => p.date !== dateStr);
+    }
+
+    setAllPunches(updated);
+    storage.set(ALL_PUNCHES_KEY, updated);
+
+    // If the edited date is today, we must synchronize today's real-time controller too!
+    if (dateStr === getTodayStr()) {
+      const finalTodayRec = computedInTime ? rec : null;
+      setPunchRecord(finalTodayRec);
+      storage.set(PUNCH_KEY, finalTodayRec);
+    }
+  };
+
   // Clock operations
   const handlePunchIn = (time: Date) => {
     const rec: PunchRecord = {
@@ -217,10 +343,41 @@ export default function App() {
     };
     setPunchRecord(rec);
     storage.set(PUNCH_KEY, rec);
+    syncPunchWithAllPunches(rec);
   };
 
   const handlePunchOut = (time: Date) => {
     if (!punchInTime) return;
+
+    // Auto terminate and save slack session if currently slacking
+    if (slacking && slackStart) {
+      const mins = Math.max(0, (time.getTime() - slackStart.getTime()) / 60000);
+      const activeWorkMinutes = Math.max(1, toMins(settings.endTime) - toMins(settings.startTime) - (toMins(settings.lunchEnd) - toMins(settings.lunchStart)));
+      const dailySal = settings.monthlySalary / settings.workDays;
+      const perMin = dailySal / activeWorkMinutes;
+      const earned = mins * perMin;
+
+      const newSession: SlackSession = {
+        id: Math.random().toString(36).substring(2, 9),
+        start: slackStart.toISOString(),
+        end: time.toISOString(),
+        mins,
+        earned,
+      };
+
+      const updatedSessions = [...slackSessions, newSession];
+      setSlackSessions(updatedSessions);
+      storage.set(SLACK_KEY, updatedSessions);
+
+      const activeCumulative = updatedSessions.reduce((sum, s) => sum + s.mins, 0);
+      const newWeekData = { ...weeklyData, [getTodayStr()]: activeCumulative };
+      setWeeklyData(newWeekData);
+      storage.set(WEEK_KEY, newWeekData);
+
+      setSlacking(false);
+      setSlackStart(null);
+    }
+
     const rec: PunchRecord = {
       date: getTodayStr(),
       inTime: punchInTime.toISOString(),
@@ -228,11 +385,13 @@ export default function App() {
     };
     setPunchRecord(rec);
     storage.set(PUNCH_KEY, rec);
+    syncPunchWithAllPunches(rec);
   };
 
   const handleClearPunch = () => {
     setPunchRecord(null);
     storage.remove(PUNCH_KEY);
+    syncPunchWithAllPunches(null);
   };
 
   const handleModifyPunch = (inStr: string | null, outStr: string | null) => {
@@ -252,6 +411,35 @@ export default function App() {
       computedOutTime.setHours(h || 18, m || 0, 0, 0);
     }
 
+    // Auto terminate active slacking session if we now have an outTime set
+    if (computedOutTime && slacking && slackStart) {
+      const mins = Math.max(0, (computedOutTime.getTime() - slackStart.getTime()) / 60000);
+      const activeWorkMinutes = Math.max(1, toMins(settings.endTime) - toMins(settings.startTime) - (toMins(settings.lunchEnd) - toMins(settings.lunchStart)));
+      const dailySal = settings.monthlySalary / settings.workDays;
+      const perMin = dailySal / activeWorkMinutes;
+      const earned = mins * perMin;
+
+      const newSession: SlackSession = {
+        id: Math.random().toString(36).substring(2, 9),
+        start: slackStart.toISOString(),
+        end: computedOutTime.toISOString(),
+        mins,
+        earned,
+      };
+
+      const updatedSessions = [...slackSessions, newSession];
+      setSlackSessions(updatedSessions);
+      storage.set(SLACK_KEY, updatedSessions);
+
+      const activeCumulative = updatedSessions.reduce((sum, s) => sum + s.mins, 0);
+      const newWeekData = { ...weeklyData, [getTodayStr()]: activeCumulative };
+      setWeeklyData(newWeekData);
+      storage.set(WEEK_KEY, newWeekData);
+
+      setSlacking(false);
+      setSlackStart(null);
+    }
+
     const rec: PunchRecord = {
       date: todayStrFull,
       inTime: computedInTime ? computedInTime.toISOString() : null,
@@ -260,11 +448,20 @@ export default function App() {
 
     setPunchRecord(rec);
     storage.set(PUNCH_KEY, rec);
+    syncPunchWithAllPunches(computedInTime ? rec : null);
   };
 
   // Slacking operations
   const handleToggleSlack = () => {
     if (!slacking) {
+      if (!punchInTime) {
+        alert("您今天尚未打卡上班，不能开启摸鱼！🐟");
+        return;
+      }
+      if (punchOutTime) {
+        alert("您今天已经下班打卡，下班后不能开启摸鱼！🏠");
+        return;
+      }
       const sStart = new Date();
       setSlackStart(sStart);
       setSlacking(true);
@@ -272,7 +469,7 @@ export default function App() {
       if (slackStart) {
         const sEnd = new Date();
         const mins = (sEnd.getTime() - slackStart.getTime()) / 60000;
-        
+
         // Compute precise earned amount
         const activeWorkMinutes = Math.max(1, toMins(settings.endTime) - toMins(settings.startTime) - (toMins(settings.lunchEnd) - toMins(settings.lunchStart)));
         const dailySal = settings.monthlySalary / settings.workDays;
@@ -354,11 +551,11 @@ export default function App() {
     if (nextH) {
       try {
         localStorage.setItem(HOLIDAY_KEY, getTodayStr());
-      } catch {}
+      } catch { }
     } else {
       try {
         localStorage.removeItem(HOLIDAY_KEY);
-      } catch {}
+      } catch { }
     }
   };
 
@@ -371,19 +568,31 @@ export default function App() {
     punchOutTime
   );
 
+  const earnedFormatted = metrics.totalEarned.toFixed(2);
+  useEffect(() => {
+    if (earnedFormatted !== "0.00") {
+      setIsPopping(true);
+      const timer = setTimeout(() => {
+        setIsPopping(false);
+      }, 150);
+      return () => clearTimeout(timer);
+    }
+  }, [earnedFormatted]);
+
   // Income constants for micro widgets
   const dailySal = settings.monthlySalary / settings.workDays;
   const activeWorkMinutes = Math.max(1, toMins(settings.endTime) - toMins(settings.startTime) - (toMins(settings.lunchEnd) - toMins(settings.lunchStart)));
   const payPerMin = dailySal / activeWorkMinutes;
   const payPerSec = payPerMin / 60;
-  const payPerHour = payPerMin * 65; // average estimation
+  const payPerHour = payPerMin * 60; // mathematically precise hourly rate
 
   // Month progress passed calculation
   const getMonthProgressDetails = () => {
-    const today = now.getDate();
-    const totalDays = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-    const workDaysPassed = Math.round((today / totalDays) * settings.workDays);
-    const progressPct = (workDaysPassed / settings.workDays) * 100;
+    const currentMonthStr = getMonthStr(now);
+    const workDaysPassed = allPunches.filter(
+      (p) => p.date.startsWith(currentMonthStr) && p.inTime
+    ).length;
+    const progressPct = Math.min(100, (workDaysPassed / settings.workDays) * 100);
     const estimatedBaseEarned = workDaysPassed * dailySal;
 
     return {
@@ -391,6 +600,64 @@ export default function App() {
       progressPct,
       estimatedBaseEarned,
     };
+  };
+
+  const getNextShiftRemainingSeconds = (): number | null => {
+    const workWeekdays = settings.workWeekdays || [1, 2, 3, 4, 5];
+    if (workWeekdays.length === 0) return null;
+
+    const [startH, startM_] = settings.startTime.split(":").map(Number);
+
+    for (let daysOffset = 0; daysOffset <= 7; daysOffset++) {
+      const testDate = new Date(now);
+      testDate.setDate(now.getDate() + daysOffset);
+      testDate.setHours(startH, startM_, 0, 0);
+
+      const dayOfWeek = testDate.getDay();
+      if (!workWeekdays.includes(dayOfWeek)) {
+        continue;
+      }
+
+      if (daysOffset === 0) {
+        if (punchInTime) {
+          continue; // Already working today
+        }
+        const nowMins = now.getHours() * 60 + now.getMinutes() + now.getSeconds() / 60;
+        const startM = startH * 60 + startM_;
+        if (nowMins >= startM) {
+          continue; // Start time for today has passed
+        }
+      }
+
+      const diffMs = testDate.getTime() - now.getTime();
+      return Math.max(0, Math.floor(diffMs / 1000));
+    }
+    return null;
+  };
+
+  const getNextWorkingDayOfWeek = (): number => {
+    const workWeekdays = settings.workWeekdays || [1, 2, 3, 4, 5];
+    if (workWeekdays.length === 0) return 1; // fallback
+    const currentDay = now.getDay();
+
+    // Check future days up to 7
+    for (let i = 0; i <= 7; i++) {
+      const testDay = (currentDay + i) % 7;
+      if (workWeekdays.includes(testDay)) {
+        if (i === 0) {
+          // If today is a workday, verify if we already passed start time
+          const [startH, startM_] = settings.startTime.split(":").map(Number);
+          const nowMins = now.getHours() * 60 + now.getMinutes() + now.getSeconds() / 60;
+          const startM = startH * 60 + startM_;
+          if (!punchInTime && nowMins < startM) {
+            return testDay; // It's still today's shift
+          }
+          continue; // Past today's start or already punched in
+        }
+        return testDay;
+      }
+    }
+    return workWeekdays[0];
   };
 
   const mProgress = getMonthProgressDetails();
@@ -405,7 +672,7 @@ export default function App() {
     const endM = toMins(settings.endTime);
 
     // Get effective start/end based on punchRecords
-    const effectiveStart = punchInTime 
+    const effectiveStart = punchInTime
       ? punchInTime.getHours() * 60 + punchInTime.getMinutes() + punchInTime.getSeconds() / 60
       : startM;
 
@@ -417,17 +684,38 @@ export default function App() {
       return "今天公假，好好休息！";
     }
 
+    const workWeekdays = settings.workWeekdays || [1, 2, 3, 4, 5];
+    const isWorkdayToday = workWeekdays.includes(now.getDay());
+
     if (punchOutTime && nowMins >= effectiveEnd) {
       return "下班了！今天辛苦啦 🎉";
     }
 
-    if (!punchInTime && nowMins < effectiveStart) {
-      const preRemSecs = Math.max(0, Math.round((effectiveStart - nowMins) * 60));
-      const preH = Math.floor(preRemSecs / 3600);
-      const preM = Math.floor((preRemSecs % 3600) / 60);
-      const preS = preRemSecs % 60;
-      const preStr = (preH > 0 ? `${preH}小时` : "") + (preM > 0 || preH > 0 ? `${preM}分` : "") + `${preS}秒`;
-      return `距上班还有 ${preStr}`;
+    // If today is not a workday, directly countdown to the next workday
+    if (!isWorkdayToday) {
+      const nextSecs = getNextShiftRemainingSeconds();
+      if (nextSecs !== null) {
+        const preH = Math.floor(nextSecs / 3600);
+        const preM = Math.floor((nextSecs % 3600) / 60);
+        const preS = nextSecs % 60;
+        const preStr = (preH > 0 ? `${preH}小时` : "") + (preM > 0 || preH > 0 ? `${preM}分` : "") + `${preS}秒`;
+        const dayNames = ["日", "一", "二", "三", "四", "五", "六"];
+        return `周${dayNames[getNextWorkingDayOfWeek()]}上班: ${preStr}`;
+      }
+      return "非工作日";
+    }
+
+    if (!punchInTime) {
+      if (nowMins < effectiveStart) {
+        const preRemSecs = Math.max(0, Math.round((effectiveStart - nowMins) * 60));
+        const preH = Math.floor(preRemSecs / 3600);
+        const preM = Math.floor((preRemSecs % 3600) / 60);
+        const preS = preRemSecs % 60;
+        const preStr = (preH > 0 ? `${preH}小时` : "") + (preM > 0 || preH > 0 ? `${preM}分` : "") + `${preS}秒`;
+        return `距上班: ${preStr}`;
+      } else {
+        return "尚未打卡上班";
+      }
     }
 
     if (nowMins >= endM && !punchOutTime) {
@@ -448,27 +736,33 @@ export default function App() {
   };
 
   return (
-    <div className="w-full max-w-[520px] mx-auto min-h-screen flex flex-col relative bg-[#0f0f0f] text-[#f0ede8] font-sans pb-24">
-      
+    <div className="w-full max-w-[520px] mx-auto min-h-screen flex flex-col relative bg-[#0f0f0f] text-[#f0ede8] font-sans">
+
       {/* ── Main content pages ── */}
-      <div className="flex-1 w-full px-5 py-6 z-10">
+      <div className="w-full px-5 pt-6 pb-2 z-10">
 
         {/* ── Tab: HOME ── */}
         {activeTab === "home" && (
           <div className="page space-y-4">
-            
+
             {/* Header / Logo bar */}
             <div className="topbar select-none">
               <div className="logo">
                 REAL<span>PAY</span>
               </div>
               <div className="badge">
-                <span className={`dot ${
-                  metrics.isWorking ? "working" :
-                  metrics.isOT ? "ot" : 
-                  isHoliday ? "done" : "off"
-                }`} />
-                <span>{metrics.statusLabel}</span>
+                <span className={`dot ${slacking ? "working" :
+                    metrics.isWorking ? "working" :
+                      metrics.isOT ? "ot" :
+                        isHoliday ? "done" : "off"
+                  }`} style={
+                    slacking
+                      ? { backgroundColor: "#a78bfa" }
+                      : (!slacking && metrics.statusLabel === "午休中")
+                        ? { backgroundColor: "#fbbf24" }
+                        : undefined
+                  } />
+                <span>{slacking ? "摸鱼中" : metrics.statusLabel}</span>
               </div>
             </div>
 
@@ -491,7 +785,7 @@ export default function App() {
             />
 
             {/* Dynamic Earnings Hero Card - Restored perfectly to original design */}
-            <div 
+            <div
               className={`hero ${slacking ? "slacking" : ""} ${isHoliday ? "holiday" : ""} ${metrics.isOT ? "overtime" : ""}`}
               onClick={() => {
                 navigator.clipboard.writeText(`RM ${metrics.totalEarned.toFixed(2)}`);
@@ -507,16 +801,15 @@ export default function App() {
               <div className="hero-label">今日已赚 · 点击复制</div>
               <div className="hero-amount">
                 <span className="hero-rm">RM</span>
-                <span className={`hero-num ${
-                  slacking ? "slacking" :
-                  metrics.isOT ? "overtime" :
-                  isHoliday ? "holiday" : "live"
-                }`}>
+                <span className={`hero-num ${slacking ? "slacking" :
+                    metrics.isOT ? "overtime" :
+                      isHoliday ? "holiday" : "live"
+                  } ${isPopping ? "pop" : ""}`}>
                   {metrics.totalEarned.toFixed(2)}
                 </span>
               </div>
               <div className="hero-date">
-                {now.getMonth() + 1}月{now.getDate()}日 · {["星期日","星期一","星期二","星期三","星期四","星期五","星期六"][now.getDay()]}
+                {now.getMonth() + 1}月{now.getDate()}日 · {["星期日", "星期一", "星期二", "星期三", "星期四", "星期五", "星期六"][now.getDay()]}
               </div>
 
               {/* Progress bar info for office hours */}
@@ -529,8 +822,8 @@ export default function App() {
                   <span>{punchOutTime ? formatAmPm(punchOutTime, settings.endTime) : formatAmPm(null, settings.endTime)}</span>
                 </div>
                 <div className="prog-track">
-                  <div 
-                    className="prog-fill" 
+                  <div
+                    className="prog-fill"
                     style={{ width: `${metrics.progressWidth}%` }}
                   />
                 </div>
@@ -575,8 +868,8 @@ export default function App() {
                 <span className="mp-pct">{mProgress.progressPct.toFixed(0)}%</span>
               </div>
               <div className="mp-track">
-                <div 
-                  className="mp-fill" 
+                <div
+                  className="mp-fill"
                   style={{ width: `${mProgress.progressPct}%` }}
                 />
               </div>
@@ -585,6 +878,14 @@ export default function App() {
                 <span>本月预计提现: <span className="mp-earned">RM {mProgress.estimatedBaseEarned.toFixed(2)}</span></span>
               </div>
             </div>
+
+            {/* Perpetual Interactive Attendance & Patching Calendar */}
+            <AttendanceCalendar
+              settings={settings}
+              allPunches={allPunches}
+              onUpdatePunch={handleUpdateAllPunches}
+              now={now}
+            />
 
             {/* Mini rates indicator */}
             <div className="rates select-none">
@@ -659,6 +960,11 @@ export default function App() {
               onSaveSlackGoal={handleSaveSlackGoal}
               onDeleteSession={handleDeleteSession}
               weeklyData={weeklyData}
+              settings={settings}
+              now={now}
+              isHoliday={isHoliday}
+              punchInTime={punchInTime}
+              punchOutTime={punchOutTime}
             />
           </div>
         )}
@@ -687,7 +993,10 @@ export default function App() {
           monthlyProgressPct={mProgress.progressPct}
           workDaysPassed={mProgress.workDaysPassed}
           totalWorkDays={settings.workDays}
-          onClose={() => setShowShareModal(false)}
+          onClose={() => {
+            setShowShareModal(false);
+            window.scrollTo({ top: 0, behavior: "smooth" });
+          }}
         />
       )}
 
@@ -699,21 +1008,33 @@ export default function App() {
       {/* TAB NAV */}
       <nav className="tab-nav select-none">
         <div className="tab-inner">
-          <button 
+          <button
             className={`tab-btn ${activeTab === "home" ? "active" : ""}`}
-            onClick={() => setActiveTab("home")}
+            onClick={() => {
+              setActiveTab("home");
+              setShowShareModal(false);
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }}
           >
             <span className="tab-icon">💰</span><span>主页</span>
           </button>
-          <button 
+          <button
             className={`tab-btn ${activeTab === "slack" ? "active" : ""}`}
-            onClick={() => setActiveTab("slack")}
+            onClick={() => {
+              setActiveTab("slack");
+              setShowShareModal(false);
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }}
           >
             <span className="tab-icon">🐟</span><span>摸鱼</span>
           </button>
-          <button 
+          <button
             className={`tab-btn ${activeTab === "settings" ? "active" : ""}`}
-            onClick={() => setActiveTab("settings")}
+            onClick={() => {
+              setActiveTab("settings");
+              setShowShareModal(false);
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }}
           >
             <span className="tab-icon">⚙️</span><span>设置</span>
           </button>

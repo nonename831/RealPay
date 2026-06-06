@@ -2,8 +2,27 @@ import { AppSettings } from "../types";
 
 export function toMins(timeStr: string): number {
   if (!timeStr) return 0;
-  const [h, m] = timeStr.split(":").map(Number);
-  return (h || 0) * 60 + (m || 0);
+  const cleaned = timeStr.trim().toLowerCase();
+  const isPM = cleaned.includes("pm");
+  const isAM = cleaned.includes("am");
+
+  // Remove "am" or "pm" and parse the numbers
+  const timeOnly = cleaned.replace("am", "").replace("pm", "").trim();
+  const parts = timeOnly.split(":");
+  let h = parseInt(parts[0], 10) || 0;
+  const m = parseInt(parts[1], 10) || 0;
+
+  if (isPM && h < 12) {
+    h += 12;
+  } else if (isAM && h === 12) {
+    h = 0;
+  }
+
+  return h * 60 + m;
+}
+
+export function isSystem12Hour(): boolean {
+  return false;
 }
 
 export function fromMins(mins: number): string {
@@ -14,6 +33,9 @@ export function fromMins(mins: number): string {
 
 export function fmt12(timeStr: string): string {
   if (!timeStr) return "--:--";
+  if (!isSystem12Hour()) {
+    return timeStr;
+  }
   const [hStr, mStr] = timeStr.split(":");
   const h = parseInt(hStr, 10);
   const m = parseInt(mStr, 10);
@@ -27,6 +49,9 @@ export function fmt12Full(date: Date): string {
   const h = date.getHours();
   const m = date.getMinutes();
   const s = date.getSeconds();
+  if (!isSystem12Hour()) {
+    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  }
   const period = h >= 12 ? "PM" : "AM";
   const displayH = h % 12 || 12;
   return `${String(displayH).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")} ${period}`;
@@ -74,7 +99,7 @@ export function computeCurrentEarnings(
 
   // Let's check effective times based on punch records
   // If punch-in is set, starting time is either custom punch-in or startM
-  const effectiveStart = punchIn 
+  const effectiveStart = punchIn
     ? punchIn.getHours() * 60 + punchIn.getMinutes() + punchIn.getSeconds() / 60
     : startM;
 
@@ -97,6 +122,22 @@ export function computeCurrentEarnings(
     };
   }
 
+  // If they have not punched in today, do not automatically calculate or accumulate any earnings!
+  if (!punchIn) {
+    return {
+      statusLabel: "未打卡",
+      earnedBase: 0,
+      earnedOT: 0,
+      totalEarned: 0,
+      progressPct: 0,
+      progressWidth: 0,
+      isWorking: false,
+      isOT: false,
+      otSecs: 0,
+      workingMinsElapsed: 0,
+    };
+  }
+
   // Punched out case
   if (punchOut && punchIn) {
     // If punched out, state is frozen.
@@ -104,7 +145,7 @@ export function computeCurrentEarnings(
     const totalElapsed = effectiveEnd - effectiveStart;
     const lunchInElapsed = Math.max(0, Math.min(effectiveEnd, lunchE) - Math.max(effectiveStart, lunchS));
     const activeWorkMins = Math.max(0, totalElapsed - lunchInElapsed);
-    
+
     const earnedBase = Math.min(dailySal, activeWorkMins * payPerMin);
     const progressPct = Math.min(100, (activeWorkMins / totalWorkMin) * 100);
 

@@ -79,7 +79,7 @@ export default function WeatherWidget({ settings }: WeatherWidgetProps) {
       const response = await fetch(url);
       if (!response.ok) throw new Error("API Network error");
       const data = await response.json();
-      
+
       const current = data.current;
       const newWeather: WeatherData = {
         temp: Math.round(current.temperature_2m),
@@ -117,8 +117,10 @@ export default function WeatherWidget({ settings }: WeatherWidgetProps) {
     const h = new Date().getHours();
     const isNight = h >= 19 || h < 6;
 
-    if (code === 0) return isNight ? "🌙" : "☀️";
-    if (code <= 2) return isNight ? "☁️" : "⛅";
+    if (isNight) return "🌙";
+
+    if (code === 0) return "☀️";
+    if (code <= 2) return "⛅";
     if (code <= 3) return "☁️";
     if (code <= 49) return "🌫";
     if (code <= 59) return "🌦";
@@ -126,7 +128,7 @@ export default function WeatherWidget({ settings }: WeatherWidgetProps) {
     if (code <= 79) return "❄️";
     if (code <= 82) return "🌧";
     if (code <= 99) return "⛈";
-    return isNight ? "🌙" : "🌤";
+    return "🌤";
   };
 
   const getDesc = (code: number) => {
@@ -147,7 +149,7 @@ export default function WeatherWidget({ settings }: WeatherWidgetProps) {
 
   const getLunchAdvice = () => {
     if (!weather) return { text: "天气加载中", type: "neutral" };
-    
+
     const code = weather.code;
     const isRaining = code >= 51;
     const isVeryHot = weather.temp >= 34;
@@ -176,38 +178,67 @@ export default function WeatherWidget({ settings }: WeatherWidgetProps) {
     const endMins = (teH || 18) * 60 + (teM || 0);
     const rainWarningMins = endMins - 60; // One hour before clocking off
 
-    if (isRaining && nowMins >= lunchEndMins && nowMins >= rainWarningMins && nowMins < endMins) {
-      return { text: "🌂 快下班了，外面在下雨，带好雨伞！", type: "warn" };
-    } else if (isRaining) {
-      return { text: "外卖 ☔ 下雨了，叫外卖吧", type: "nah" };
-    } else if (nowMins < lunchStartMins) {
-      if (isVeryHot) {
-        return { text: "🥵 太热了，建议在空调房吃饭", type: "nah" };
+    // 1. One Hour Before Clocking Off
+    if (nowMins >= rainWarningMins && nowMins < endMins) {
+      if (isRaining) {
+        return { text: "🌂 外面正在下雨，下班别忘了带好雨伞哦！", type: "warn" };
       }
-      return { text: "✓ 天气不错，出去吃午饭吧", type: "go" };
-    } else if (nowMins >= lunchStartMins && nowMins < lunchEndMins) {
-      if (isVeryHot) {
-        return { text: "🥵 午休时间！太阳很大，注意防暑", type: "nah" };
-      }
-      return { text: "✓ 吃完饭散散步，吹吹微风", type: "go" };
-    } else {
-      if (isVeryHot) {
-        return { text: "🌤 外面较热，安心摸鱼奋斗", type: "go" };
-      }
-      return { text: "🌤 天气舒适，适宜外出散心", type: "go" };
+      return { text: "🎒 准备下班啦，检查一下随身物品，带好雨伞哦", type: "go" };
     }
+
+    // 2. Before Lunch
+    if (nowMins < lunchStartMins) {
+      if (isRaining) {
+        return { text: "☔ 下雨了，中午建议叫外卖或带好伞出去吃", type: "nah" };
+      }
+      if (isVeryHot) {
+        return { text: "🥵 太热了，中午建议在空调房吃饭", type: "nah" };
+      }
+      return { text: "✓ 天气不错，中午可以出去吃顿好的", type: "go" };
+    }
+
+    // 3. During Lunch Break
+    if (nowMins >= lunchStartMins && nowMins < lunchEndMins) {
+      if (isRaining) {
+        return { text: "🌧 外面下着雨，午休安心吃个外卖休息吧", type: "nah" };
+      }
+      if (isVeryHot) {
+        return { text: "🥵 午休时间！外面太阳很大，注意防暑", type: "nah" };
+      }
+      return { text: "✓ 吃饱喝足，可以散散步吹吹风，下午更有精神", type: "go" };
+    }
+
+    // 4. Afternoon (After Lunch, Before the Final Work Hour)
+    if (nowMins >= lunchEndMins && nowMins < rainWarningMins) {
+      if (isRaining) {
+        return { text: "🌧 外面下着暴雨，安心在室内摸鱼工作吧", type: "nah" };
+      }
+      if (isVeryHot) {
+        return { text: "🥤 下午天气炎热，别忘了多喝水、适度摸鱼休息", type: "go" };
+      }
+      return { text: "☕ 下午时光，喝杯咖啡、伸个懒腰，打起精神来", type: "go" };
+    }
+
+    // 5. After Work Hours (But before 19:00 night time logic)
+    if (isRaining) {
+      return { text: "🌧 已经下班啦，外面还下着雨，路滑注意安全", type: "warn" };
+    }
+    return { text: "✨ 已经快乐下班！享受属于你自己的时间吧", type: "go" };
   };
 
   const advice = getLunchAdvice();
+  const currentHour = new Date().getHours();
+  const isNightTime = currentHour >= 19 || currentHour < 6;
+  const defaultPlaceholder = isNightTime ? "🌙" : "🌤";
 
   return (
-    <div 
+    <div
       className={`weather-card ${loading ? "loading" : ""}`}
       onClick={() => fetchWeather(true)}
     >
       <div className="wx-left">
         <div className="wx-icon">
-          {loading ? "⌛" : weather ? getEmoji(weather.code) : "🌤"}
+          {loading ? "⌛" : weather ? getEmoji(weather.code) : defaultPlaceholder}
         </div>
         <div className="wx-info">
           <div className="wx-temp">

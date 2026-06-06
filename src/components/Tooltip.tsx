@@ -9,7 +9,7 @@ export default function Tooltip({ content, children }: TooltipProps) {
   const [visible, setVisible] = useState(false);
 
   return (
-    <div 
+    <div
       className="relative idx-tooltip-wrapper inline-block"
       onMouseEnter={() => setVisible(true)}
       onMouseLeave={() => setVisible(false)}

@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { SlackSession } from "../types";
-import { fmtMinsChinese } from "../utils/calculations";
+import { SlackSession, AppSettings } from "../types";
+import { fmtMinsChinese, toMins } from "../utils/calculations";
 
 interface SlackingManagerProps {
   slacking: boolean;
@@ -12,6 +12,11 @@ interface SlackingManagerProps {
   onSaveSlackGoal: (mins: number) => void;
   onDeleteSession: (id: string) => void;
   weeklyData: { [date: string]: number };
+  settings: AppSettings;
+  now: Date;
+  isHoliday: boolean;
+  punchInTime: Date | null;
+  punchOutTime: Date | null;
 }
 
 interface Achievement {
@@ -42,6 +47,11 @@ export default function SlackingManager({
   onSaveSlackGoal,
   onDeleteSession,
   weeklyData,
+  settings,
+  now,
+  isHoliday,
+  punchInTime,
+  punchOutTime,
 }: SlackingManagerProps) {
   const [selectedAch, setSelectedAch] = useState<Achievement | null>(null);
 
@@ -53,6 +63,10 @@ export default function SlackingManager({
   };
 
   const formatMinsToHoursAndMins = (totalMins: number): string => {
+    if (totalMins > 0 && totalMins < 1) {
+      const secs = Math.round(totalMins * 60);
+      return `${secs}秒`;
+    }
     const mins = Math.round(totalMins);
     const h = Math.floor(mins / 60);
     const m = mins % 60;
@@ -75,12 +89,35 @@ export default function SlackingManager({
   const overGoal = totalSlackMins > slackGoalMins;
   const goalPct = Math.min(100, (totalSlackMins / (slackGoalMins || 1)) * 100);
 
-  // Today dynamic efficiency calculation
-  // Let's assume net work minutes is 480 (8 hours) minus slacking minutes.
-  // Efficiency = (480 - totalSlackMins) / 480 * 100
-  const maxWorkMin = 480;
-  const dynamicWorkMin = Math.max(0, maxWorkMin - totalSlackMins);
-  const efficiencyPct = Math.max(0, Math.min(100, (dynamicWorkMin / maxWorkMin) * 100));
+  // Today dynamic efficiency calculation based on elapsed work minutes today
+  const startM = toMins(settings.startTime);
+  const endM = toMins(settings.endTime);
+  const lunchS = toMins(settings.lunchStart);
+  const lunchE = toMins(settings.lunchEnd);
+
+  const hVal = now.getHours();
+  const mVal = now.getMinutes();
+  const sVal = now.getSeconds();
+  const nowM = hVal * 60 + mVal + sVal / 60;
+
+  // Effective start/end (considering manual punch)
+  const hasPunchedIn = !!punchInTime;
+  const effStart = punchInTime
+    ? punchInTime.getHours() * 60 + punchInTime.getMinutes() + punchInTime.getSeconds() / 60
+    : startM;
+
+  const effEnd = punchOutTime
+    ? punchOutTime.getHours() * 60 + punchOutTime.getMinutes() + punchOutTime.getSeconds() / 60
+    : endM;
+
+  const cappedNow = Math.min(nowM, effEnd);
+  const rawElapsed = hasPunchedIn ? Math.max(0, cappedNow - effStart) : 0;
+  const lunchPassed = hasPunchedIn ? Math.max(0, Math.min(cappedNow, lunchE) - Math.max(effStart, lunchS)) : 0;
+  const totalElapsed = hasPunchedIn ? Math.max(0, rawElapsed - lunchPassed) : 0;
+
+  const cappedSlackMins = Math.min(totalSlackMins, totalElapsed);
+  const playWorkMins = Math.max(0, totalElapsed - cappedSlackMins);
+  const efficiencyPct = totalElapsed > 0 ? (playWorkMins / totalElapsed) * 100 : (totalSlackMins > 0 ? 0 : 100);
 
   const getEffColorClass = (pct: number) => {
     if (pct >= 80) return "";
@@ -122,7 +159,7 @@ export default function SlackingManager({
     const current = new Date();
     const distanceToMonday = (current.getDay() + 6) % 7;
     current.setDate(current.getDate() - distanceToMonday);
-    
+
     for (let i = 0; i < 7; i++) {
       const d = new Date(current);
       d.setDate(current.getDate() + i);
@@ -141,6 +178,10 @@ export default function SlackingManager({
   });
 
   const maxVal = Math.max(...weekValues, slackGoalMins, 10);
+
+  const isPunchInOk = !!punchInTime;
+  const isPunchOutOk = !!punchOutTime;
+  const cannotSlack = !isPunchInOk || isPunchOutOk;
 
   return (
     <div className="space-y-4">
@@ -163,16 +204,19 @@ export default function SlackingManager({
           <div>
             <div className="slack-label-main">摸鱼模式</div>
             <div className="slack-label-sub">
-              {slacking ? "正在摸鱼中，每一秒都是纯利润..." : "安全防护已就绪，随时一键开始滑水 🌊"}
+              {cannotSlack
+                ? (!isPunchInOk ? "⚠️ 请先在主页完成「上班打卡」再摸鱼哦" : "🕒 今日已打卡下班，安心回家休息吧，不营业摸鱼了")
+                : (slacking ? "正在摸鱼中，每一秒都是纯利润..." : "安全防护已就绪，随时一键开始滑水 🌊")}
             </div>
           </div>
-          <div className="toggle-wrap">
+          <div className="toggle-wrap" style={cannotSlack ? { opacity: 0.4, cursor: "not-allowed" } : undefined}>
             <input
               type="checkbox"
               id="slack-toggle"
               checked={slacking}
+              disabled={cannotSlack}
               onChange={onToggleSlack}
-              className="cursor-pointer"
+              className={cannotSlack ? "cursor-not-allowed" : "cursor-pointer"}
             />
             <label className="toggle-track" htmlFor="slack-toggle" />
           </div>
@@ -232,7 +276,7 @@ export default function SlackingManager({
         </div>
         <div className="eff-row">
           <div className="eff-stat">
-            <div className="eff-stat-v">{formatMinsToHoursAndMins(dynamicWorkMin)}</div>
+            <div className="eff-stat-v">{formatMinsToHoursAndMins(playWorkMins)}</div>
             <div className="eff-stat-l">实际工作</div>
           </div>
           <div className="eff-stat">
@@ -245,7 +289,7 @@ export default function SlackingManager({
             <div className="eff-stat-v text-emerald-400" style={{ color: "var(--green)" }}>
               RM {totalSlackEarned.toFixed(2)}
             </div>
-            <div className="eff-stat-l">无痛回报</div>
+            <div className="eff-stat-l">摸鱼总收益</div>
           </div>
         </div>
       </div>
@@ -276,9 +320,8 @@ export default function SlackingManager({
             <div className="flex-1">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-purple-300">{selectedAch.name}</span>
-                <span className={`text-[9px] font-mono font-bold px-1.5 py-0.2 rounded-full ${
-                  isUnlocked(selectedAch.id) ? "bg-purple-500/10 text-purple-400" : "bg-neutral-800 text-neutral-500"
-                }`}>
+                <span className={`text-[9px] font-mono font-bold px-1.5 py-0.2 rounded-full ${isUnlocked(selectedAch.id) ? "bg-purple-500/10 text-purple-400" : "bg-neutral-800 text-neutral-500"
+                  }`}>
                   {isUnlocked(selectedAch.id) ? "已解锁" : "未解锁"}
                 </span>
               </div>
@@ -332,7 +375,7 @@ export default function SlackingManager({
                   <div className="sli-left">
                     <span>{startStr} — {endStr}</span>
                     <span className="mx-2 text-neutral-600">·</span>
-                    <span>时长: {Math.round(s.mins)}m</span>
+                    <span>时长: {s.mins < 1 ? `${Math.round(s.mins * 60)}秒` : `${Math.round(s.mins)}分钟`}</span>
                   </div>
                   <div className="flex items-center gap-3">
                     <span className="sli-right">RM {s.earned.toFixed(2)}</span>

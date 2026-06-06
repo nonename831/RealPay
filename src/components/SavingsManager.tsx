@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
+import { motion, AnimatePresence } from "motion/react";
 import { SavingsGoal } from "../types";
 
 interface SavingsManagerProps {
@@ -26,6 +27,23 @@ export default function SavingsManager({
 
   const [allocateId, setAllocateId] = useState<string | null>(null);
   const [allocateAmount, setAllocateAmount] = useState("");
+
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      const isAnyActive = isAdding || editingId !== null || allocateId !== null;
+      if (isAnyActive && containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsAdding(false);
+        setEditingId(null);
+        setAllocateId(null);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isAdding, editingId, allocateId]);
 
   const handleAddSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -81,7 +99,7 @@ export default function SavingsManager({
   };
 
   return (
-    <div className="space-y-4">
+    <div ref={containerRef} className="space-y-4">
       {/* Set Goals Form Trigger Row */}
       <div className="flex items-center justify-between px-1">
         <span className="text-[11px] font-mono tracking-widest uppercase text-neutral-500 font-bold">
@@ -100,137 +118,188 @@ export default function SavingsManager({
       </div>
 
       {/* Goal Creation Form */}
-      <div className={`sg-form ${isAdding ? "open" : ""}`} style={{ display: isAdding ? "block" : "none" }}>
-        <form onSubmit={handleAddSubmit} className="savings-goal">
-          <div className="sg-form-grid">
-            <div className="sg-field span2">
-              <label>目标名称（例：AirPods / 旅行）</label>
-              <input
-                type="text"
-                required
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="AirPods Pro"
-              />
-            </div>
-            <div className="sg-field">
-              <label>目标金额 (RM)</label>
-              <input
-                type="number"
-                required
-                min="1"
-                value={target}
-                onChange={(e) => setTarget(e.target.value)}
-                placeholder="800"
-              />
-            </div>
-            <div className="sg-field">
-              <label>已存 (RM)</label>
-              <input
-                type="number"
-                min="0"
-                value={saved}
-                onChange={(e) => setSaved(e.target.value)}
-                placeholder="0"
-              />
-            </div>
-          </div>
-          <button type="submit" className="sg-save">
-            添加目标物 ✓
-          </button>
-        </form>
-      </div>
+      <AnimatePresence initial={false}>
+        {isAdding && (
+          <motion.div
+            initial={{ height: 0, opacity: 0, marginTop: 0 }}
+            animate={{ height: "auto", opacity: 1, marginTop: 12 }}
+            exit={{ height: 0, opacity: 0, marginTop: 0 }}
+            transition={{ duration: 0.3, ease: "easeInOut" }}
+            className="sg-form open overflow-hidden"
+          >
+            <motion.form
+              onSubmit={handleAddSubmit}
+              className="savings-goal"
+              initial={{ borderColor: "var(--border)" }}
+              animate={{ borderColor: "#ffffff" }}
+              exit={{ borderColor: "var(--border)" }}
+              transition={{ delay: 0.1, duration: 0.3 }}
+            >
+              <div className="sg-form-grid">
+                <div className="sg-field span2">
+                  <label>目标名称（例：AirPods / 旅行）</label>
+                  <input
+                    type="text"
+                    required
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="AirPods Pro"
+                  />
+                </div>
+                <div className="sg-field">
+                  <label>目标金额 (RM)</label>
+                  <input
+                    type="number"
+                    required
+                    min="1"
+                    value={target}
+                    onChange={(e) => setTarget(e.target.value)}
+                    placeholder="800"
+                  />
+                </div>
+                <div className="sg-field">
+                  <label>已存 (RM)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={saved}
+                    onChange={(e) => setSaved(e.target.value)}
+                    placeholder="0"
+                  />
+                </div>
+              </div>
+              <button type="submit" className="sg-save">
+                添加目标物 ✓
+              </button>
+            </motion.form>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Goal Editing Form */}
-      <div className={`sg-form ${editingId ? "open" : ""}`} style={{ display: editingId ? "block" : "none" }}>
-        <form onSubmit={saveEdit} className="savings-goal">
-          <div className="sg-form-grid">
-            <div className="sg-field span2">
-              <label>编辑目标名称</label>
-              <input
-                type="text"
-                required
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-              />
-            </div>
-            <div className="sg-field">
-              <label>目标金额 (RM)</label>
-              <input
-                type="number"
-                required
-                min="1"
-                value={target}
-                onChange={(e) => setTarget(e.target.value)}
-              />
-            </div>
-            <div className="sg-field">
-              <label>已保存金额 (RM)</label>
-              <input
-                type="number"
-                min="0"
-                value={saved}
-                onChange={(e) => setSaved(e.target.value)}
-              />
-            </div>
-          </div>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => setEditingId(null)}
-              className="flex-1 bg-neutral-800 text-neutral-400 font-semibold border border-neutral-700 py-2 rounded-lg text-xs"
+      <AnimatePresence initial={false}>
+        {editingId && (
+          <motion.div
+            initial={{ height: 0, opacity: 0, marginTop: 0 }}
+            animate={{ height: "auto", opacity: 1, marginTop: 12 }}
+            exit={{ height: 0, opacity: 0, marginTop: 0 }}
+            transition={{ duration: 0.3, ease: "easeInOut" }}
+            className="sg-form open overflow-hidden"
+          >
+            <motion.form
+              onSubmit={saveEdit}
+              className="savings-goal"
+              initial={{ borderColor: "var(--border)" }}
+              animate={{ borderColor: "#ffffff" }}
+              exit={{ borderColor: "var(--border)" }}
+              transition={{ delay: 0.1, duration: 0.3 }}
             >
-              取消
-            </button>
-            <button type="submit" className="sg-save flex-1">
-              保存更改 ✓
-            </button>
-          </div>
-        </form>
-      </div>
+              <div className="sg-form-grid">
+                <div className="sg-field span2">
+                  <label>编辑目标名称</label>
+                  <input
+                    type="text"
+                    required
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                  />
+                </div>
+                <div className="sg-field">
+                  <label>目标金额 (RM)</label>
+                  <input
+                    type="number"
+                    required
+                    min="1"
+                    value={target}
+                    onChange={(e) => setTarget(e.target.value)}
+                  />
+                </div>
+                <div className="sg-field">
+                  <label>已保存金额 (RM)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={saved}
+                    onChange={(e) => setSaved(e.target.value)}
+                  />
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingId(null)}
+                  className="flex-1 bg-neutral-800 text-neutral-400 font-semibold border border-neutral-700 py-2 rounded-lg text-xs"
+                >
+                  取消
+                </button>
+                <button type="submit" className="sg-save flex-1">
+                  保存更改 ✓
+                </button>
+              </div>
+            </motion.form>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Goal Quick Investment allocation form */}
-      <div className={`sg-form ${allocateId ? "open" : ""}`} style={{ display: allocateId ? "block" : "none" }}>
-        <form onSubmit={handleAllocateSubmit} className="savings-goal">
-          <div className="sg-field">
-            <label>存入/取出 金额 (正数代表存，负数代表取出。例: 50 或 -20)</label>
-            <div className="flex gap-2 mt-1">
-              <input
-                type="number"
-                required
-                step="any"
-                value={allocateAmount}
-                onChange={(e) => setAllocateAmount(e.target.value)}
-                placeholder="RM 0.00"
-                className="flex-1"
-                style={{
-                  background: "var(--surface2)",
-                  border: "1px solid var(--border)",
-                  borderRadius: "8px",
-                  color: "var(--text)",
-                  fontFamily: "var(--mono)",
-                  fontSize: "14px",
-                  padding: "8px 10px",
-                  outline: "none",
-                }}
-              />
-              <button
-                type="submit"
-                className="bg-purple-400 text-black font-semibold text-xs px-4 rounded-lg outline-none"
-              >
-                确认
-              </button>
-              <button
-                type="button"
-                onClick={() => setAllocateId(null)}
-                className="bg-neutral-850 text-neutral-450 text-xs px-3 border border-neutral-800 rounded-lg"
-              >
-                取消
-              </button>
-            </div>
-          </div>
-        </form>
-      </div>
+      <AnimatePresence initial={false}>
+        {allocateId && (
+          <motion.div
+            initial={{ height: 0, opacity: 0, marginTop: 0 }}
+            animate={{ height: "auto", opacity: 1, marginTop: 12 }}
+            exit={{ height: 0, opacity: 0, marginTop: 0 }}
+            transition={{ duration: 0.3, ease: "easeInOut" }}
+            className="sg-form open overflow-hidden"
+          >
+            <motion.form
+              onSubmit={handleAllocateSubmit}
+              className="savings-goal"
+              initial={{ borderColor: "var(--border)" }}
+              animate={{ borderColor: "#ffffff" }}
+              exit={{ borderColor: "var(--border)" }}
+              transition={{ delay: 0.1, duration: 0.3 }}
+            >
+              <div className="sg-field">
+                <label>存入/取出 金额 (正数代表存，负数代表取出。例: 50 或 -20)</label>
+                <div className="flex gap-2 mt-1">
+                  <input
+                    type="number"
+                    required
+                    step="any"
+                    value={allocateAmount}
+                    onChange={(e) => setAllocateAmount(e.target.value)}
+                    placeholder="RM 0.00"
+                    className="flex-1"
+                    style={{
+                      background: "var(--surface2)",
+                      border: "1px solid var(--border)",
+                      borderRadius: "8px",
+                      color: "var(--text)",
+                      fontFamily: "var(--mono)",
+                      fontSize: "14px",
+                      padding: "8px 10px",
+                      outline: "none",
+                    }}
+                  />
+                  <button
+                    type="submit"
+                    className="bg-purple-400 text-black font-semibold text-xs px-4 rounded-lg outline-none"
+                  >
+                    确认
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAllocateId(null)}
+                    className="bg-neutral-850 text-neutral-450 text-xs px-3 border border-neutral-800 rounded-lg"
+                  >
+                    取消
+                  </button>
+                </div>
+              </div>
+            </motion.form>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* List of Wishlist goals */}
       {goals.length === 0 ? (
@@ -288,8 +357,8 @@ export default function SavingsManager({
                 </div>
 
                 <div className="sg-track">
-                  <div 
-                    className="sg-fill" 
+                  <div
+                    className="sg-fill"
                     style={{ width: `${pct}%` }}
                   />
                 </div>

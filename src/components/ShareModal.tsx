@@ -1,5 +1,142 @@
-import { Share, Copy, Download, X, Check, Award } from "lucide-react";
-import { useState } from "react";
+import { Copy, Download, X, Check, Award } from "lucide-react";
+import { useState, useEffect } from "react";
+import html2canvas from "html2canvas";
+
+// Converts OKLCH stylesheet values to standard RGB/RGBA values to prevent html2canvas parsing crashes
+function convertOklchToRgb(oklchStr: string): string {
+  try {
+    const startIdx = oklchStr.indexOf('(');
+    const endIdx = oklchStr.lastIndexOf(')');
+    if (startIdx === -1 || endIdx === -1) return oklchStr;
+    const inner = oklchStr.slice(startIdx + 1, endIdx).trim();
+
+    const parts = inner.split("/");
+    const colorParts = parts[0].trim().split(/\s+/);
+    if (colorParts.length < 3) return oklchStr;
+
+    let l = parseFloat(colorParts[0]);
+    if (colorParts[0].endsWith("%")) { l = l / 100; }
+    let c = parseFloat(colorParts[1]);
+    if (colorParts[1].endsWith("%")) { c = c / 100; }
+    let hStr = colorParts[2];
+    if (hStr.endsWith("deg")) { hStr = hStr.slice(0, -3); }
+    else if (hStr.endsWith("rad")) { hStr = (parseFloat(hStr.slice(0, -3)) * 180 / Math.PI).toString(); }
+    else if (hStr.endsWith("turn")) { hStr = (parseFloat(hStr.slice(0, -4)) * 360).toString(); }
+    const h = parseFloat(hStr);
+    if (isNaN(l) || isNaN(c) || isNaN(h)) return oklchStr;
+
+    let alpha = parts[1] ? parts[1].trim() : undefined;
+    if (alpha) {
+      if (alpha.endsWith("%")) { alpha = (parseFloat(alpha) / 100).toString(); }
+      else if (alpha.includes("var(")) { const fallbackMatch = alpha.match(/,\s*([^)]+)\)/); alpha = fallbackMatch ? fallbackMatch[1].trim() : "1"; }
+    }
+
+    const hRad = (h * Math.PI) / 180;
+    const aVal = c * Math.cos(hRad);
+    const bVal = c * Math.sin(hRad);
+    const l_ = l + 0.3963377774 * aVal + 0.2158037573 * bVal;
+    const m_ = l - 0.1055613458 * aVal - 0.0638541728 * bVal;
+    const s_ = l - 0.0894841775 * aVal - 1.2914855480 * bVal;
+    const L = Math.pow(Math.max(0, l_), 3);
+    const M = Math.pow(Math.max(0, m_), 3);
+    const S = Math.pow(Math.max(0, s_), 3);
+    const rL = +4.0767416621 * L - 3.3077115913 * M + 0.2309699292 * S;
+    const gL = -1.2684380046 * L + 2.6097574011 * M - 0.3413193965 * S;
+    const bL = -0.0041960863 * L - 0.7034186147 * M + 1.7076147010 * S;
+    const gamma = (val: number) => val <= 0.0031308 ? 12.92 * val : 1.055 * Math.pow(val, 1 / 2.4) - 0.055;
+    const r = Math.min(255, Math.max(0, Math.round(gamma(rL) * 255)));
+    const g = Math.min(255, Math.max(0, Math.round(gamma(gL) * 255)));
+    const b = Math.min(255, Math.max(0, Math.round(gamma(bL) * 255)));
+    return alpha ? `rgba(${r}, ${g}, ${b}, ${alpha})` : `rgb(${r}, ${g}, ${b})`;
+  } catch (err) {
+    console.error("Failed to convert oklch:", oklchStr, err);
+    return "rgb(120, 120, 120)";
+  }
+}
+
+function convertOklabToRgb(oklabStr: string): string {
+  try {
+    const startIdx = oklabStr.indexOf('(');
+    const endIdx = oklabStr.lastIndexOf(')');
+    if (startIdx === -1 || endIdx === -1) return oklabStr;
+    const inner = oklabStr.slice(startIdx + 1, endIdx).trim();
+    const parts = inner.split("/");
+    const colorParts = parts[0].trim().split(/\s+/);
+    if (colorParts.length < 3) return oklabStr;
+    let l = parseFloat(colorParts[0]);
+    if (colorParts[0].endsWith("%")) { l = l / 100; }
+    let aVal = parseFloat(colorParts[1]);
+    if (colorParts[1].endsWith("%")) { aVal = aVal / 100; }
+    let bVal = parseFloat(colorParts[2]);
+    if (colorParts[2].endsWith("%")) { bVal = bVal / 100; }
+    if (isNaN(l) || isNaN(aVal) || isNaN(bVal)) return oklabStr;
+    let alpha = parts[1] ? parts[1].trim() : undefined;
+    if (alpha) {
+      if (alpha.endsWith("%")) { alpha = (parseFloat(alpha) / 100).toString(); }
+      else if (alpha.includes("var(")) { const fallbackMatch = alpha.match(/,\s*([^)]+)\)/); alpha = fallbackMatch ? fallbackMatch[1].trim() : "1"; }
+    }
+    const l_ = l + 0.3963377774 * aVal + 0.2158037573 * bVal;
+    const m_ = l - 0.1055613458 * aVal - 0.0638541728 * bVal;
+    const s_ = l - 0.0894841775 * aVal - 1.2914855480 * bVal;
+    const L = Math.pow(Math.max(0, l_), 3);
+    const M = Math.pow(Math.max(0, m_), 3);
+    const S = Math.pow(Math.max(0, s_), 3);
+    const rL = +4.0767416621 * L - 3.3077115913 * M + 0.2309699292 * S;
+    const gL = -1.2684380046 * L + 2.6097574011 * M - 0.3413193965 * S;
+    const bL = -0.0041960863 * L - 0.7034186147 * M + 1.7076147010 * S;
+    const gamma = (val: number) => val <= 0.0031308 ? 12.92 * val : 1.055 * Math.pow(val, 1 / 2.4) - 0.055;
+    const r = Math.min(255, Math.max(0, Math.round(gamma(rL) * 255)));
+    const g = Math.min(255, Math.max(0, Math.round(gamma(gL) * 255)));
+    const b = Math.min(255, Math.max(0, Math.round(gamma(bL) * 255)));
+    return alpha ? `rgba(${r}, ${g}, ${b}, ${alpha})` : `rgb(${r}, ${g}, ${b})`;
+  } catch (err) {
+    console.error("Failed to convert oklab:", oklabStr, err);
+    return "rgb(120, 120, 120)";
+  }
+}
+
+function sanitizeColorValue(val: string): string {
+  if (!val) return val;
+  const oklchRegex = /oklch\((?:[^()]+|\([^()]*\))*\)/gi;
+  const oklabRegex = /oklab\((?:[^()]+|\([^()]*\))*\)/gi;
+  let result = val;
+  if (result.toLowerCase().includes("oklch")) result = result.replace(oklchRegex, (match) => convertOklchToRgb(match));
+  if (result.toLowerCase().includes("oklab")) result = result.replace(oklabRegex, (match) => convertOklabToRgb(match));
+  return result;
+}
+
+function wrapGetComputedStyle(win: Window) {
+  if (!win || (win as any).__getComputedStyleWrapped) return;
+  (win as any).__getComputedStyleWrapped = true;
+  const originalGetComputedStyle = win.getComputedStyle;
+  win.getComputedStyle = function (elt, pseudoElt) {
+    const style = originalGetComputedStyle(elt, pseudoElt);
+    return new Proxy(style, {
+      get(target, prop, receiver) {
+        if (prop === "getPropertyValue") {
+          return function (propertyName: string) {
+            const val = target.getPropertyValue(propertyName);
+            return sanitizeColorValue(val);
+          };
+        }
+        let val;
+        try {
+          if (typeof prop === "string" && prop in target) {
+            const originalVal = (target as any)[prop];
+            if (typeof originalVal === "function") return originalVal.bind(target);
+            val = originalVal;
+          } else {
+            val = Reflect.get(target, prop);
+          }
+        } catch (err) {
+          val = Reflect.get(target, prop);
+        }
+        if (typeof val === "string") return sanitizeColorValue(val);
+        return val;
+      },
+    });
+  };
+}
 
 const SLOGANS = [
   "把老板亏麻了，打工人终极胜利！",
@@ -127,8 +264,15 @@ export default function ShareModal({
 }: ShareModalProps) {
   const [copied, setCopied] = useState(false);
   const [downloading, setDownloading] = useState(false);
-  
-  // Choose a random slacking slogan that stays stable during this modal's mount
+
+  useEffect(() => {
+    const originalStyle = window.getComputedStyle(document.body).overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = originalStyle;
+    };
+  }, []);
+
   const [slogan] = useState(() => {
     return SLOGANS[Math.floor(Math.random() * SLOGANS.length)];
   });
@@ -170,26 +314,8 @@ RealPay 实时薪水`;
     }
   };
 
-  const handleWebShare = async () => {
-    const shareText = generateShareText();
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: "RealPay 薪酬战报",
-          text: shareText,
-        });
-      } catch (err) {
-        console.error("Web Share failed", err);
-        handleCopyText();
-      }
-    } else {
-      handleCopyText();
-    }
-  };
-
   const handleDownloadImage = () => {
     setDownloading(true);
-    // Find the share-card node from DOM or try doing html2canvas.
     const node = document.getElementById("visual-share-card");
     if (!node) {
       alert("未找到元素，已自动帮您复制文本战报！");
@@ -198,22 +324,90 @@ RealPay 实时薪水`;
       return;
     }
 
-    // Since users on iOS Safari experience html2canvas bugs, we warn them with a polite dialog
-    // and fallback to copying the text if any render error strikes!
-    // We import dynamically or check if `html2canvas` is loaded from cdn.
-    const h2c = (window as any).html2canvas;
-    if (!h2c) {
-      alert("渲染插件尚未准备好，已为您复制纯文本战报！");
-      handleCopyText();
-      setDownloading(false);
-      return;
-    }
+    wrapGetComputedStyle(window);
 
-    h2c(node, {
+    html2canvas(node, {
       backgroundColor: "#0d0d0d",
       scale: 2,
       useCORS: true,
       logging: false,
+      onclone: (clonedDoc) => {
+        const clonedWin = clonedDoc.defaultView;
+        if (clonedWin) wrapGetComputedStyle(clonedWin);
+
+        let combinedCss = "";
+        try {
+          for (let i = 0; i < document.styleSheets.length; i++) {
+            const sheet = document.styleSheets[i];
+            try {
+              const rules = sheet.cssRules || (sheet as any).rules;
+              if (rules) {
+                for (let j = 0; j < rules.length; j++) {
+                  combinedCss += rules[j].cssText + "\n";
+                }
+              }
+            } catch (e) { /* cross-origin */ }
+          }
+        } catch (e) {
+          console.warn("Failed to capture document stylesheets", e);
+        }
+
+        const styles = Array.from(clonedDoc.getElementsByTagName("style"));
+        styles.forEach((s) => s.parentNode?.removeChild(s));
+        const links = Array.from(clonedDoc.getElementsByTagName("link"));
+        links.forEach((l) => { if (l.rel === "stylesheet") l.parentNode?.removeChild(l); });
+
+        const oklchRegex = /oklch\((?:[^()]+|\([^()]*\))*\)/g;
+        const oklabRegex = /oklab\((?:[^()]+|\([^()]*\))*\)/g;
+        let translatedCss = combinedCss.replace(oklchRegex, (match) => convertOklchToRgb(match));
+        translatedCss = translatedCss.replace(oklabRegex, (match) => convertOklabToRgb(match));
+        const styleNode = clonedDoc.createElement("style");
+        styleNode.textContent = translatedCss;
+        clonedDoc.head.appendChild(styleNode);
+
+        const allElements = clonedDoc.getElementsByTagName("*");
+        for (let i = 0; i < allElements.length; i++) {
+          const el = allElements[i] as HTMLElement;
+          if (el.style) {
+            for (let j = 0; j < el.style.length; j++) {
+              const prop = el.style[j];
+              const val = el.style.getPropertyValue(prop);
+              if (val) {
+                let replacedVal = val;
+                let changed = false;
+                if (val.includes("oklch")) { replacedVal = replacedVal.replace(oklchRegex, (match) => convertOklchToRgb(match)); changed = true; }
+                if (val.includes("oklab")) { replacedVal = replacedVal.replace(oklabRegex, (match) => convertOklabToRgb(match)); changed = true; }
+                if (changed) el.style.setProperty(prop, replacedVal);
+              }
+            }
+          }
+        }
+
+        // ── 替换 slogan 区块为全内联样式版本，解决截图对齐问题 ──
+        const sloganOuter = clonedDoc.querySelector("[data-slogan-outer]") as HTMLElement | null;
+        if (sloganOuter) {
+          sloganOuter.style.cssText = `
+            margin-top: 36px;
+            background: rgba(168, 85, 247, 0.1);
+            border: 1px solid rgba(168, 85, 247, 0.2);
+            border-radius: 12px;
+            padding: 4px 16px 12px 16px;
+            display: block;
+            color: #d8b4fe;
+            font-family: monospace;
+            font-size: 10px;
+            text-align: center;
+          `;
+          sloganOuter.innerHTML = `
+            <table style="width:auto;border-collapse:collapse;margin:0 auto;">
+              <tr>
+                <td style="vertical-align:middle;padding:0 6px 0 0;font-size:12px;">🏅</td>
+                <td style="vertical-align:middle;padding:0;font-size:10px;line-height:1.4;">${slogan}</td>
+              </tr>
+            </table>
+          `;
+        }
+      }
     })
       .then((canvas: HTMLCanvasElement) => {
         const link = document.createElement("a");
@@ -232,7 +426,7 @@ RealPay 实时薪水`;
 
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-fade-in">
-      <div className="bg-neutral-900 border border-neutral-800 rounded-2xl w-full max-w-[360px] overflow-hidden flex flex-col max-h-[90vh]">
+      <div className="bg-neutral-900 border border-neutral-800 rounded-2xl w-full max-w-[360px] overflow-hidden flex flex-col max-h-[90vh] transform -translate-y-8 sm:-translate-y-12">
         {/* Modal Header */}
         <div className="px-4 py-3 border-b border-neutral-850 flex items-center justify-between">
           <span className="font-mono text-xs font-bold text-neutral-400">
@@ -248,14 +442,12 @@ RealPay 实时薪水`;
 
         {/* Modal Scroll Content */}
         <div className="p-4 flex-1 overflow-y-auto space-y-4">
-          
-          {/* Visual Share Card - Designed taller & longer with generous vertical breathing room */}
+
+          {/* Visual Share Card */}
           <div
             id="visual-share-card"
-            className="bg-neutral-950 border border-neutral-800 py-12 px-6 rounded-xl shadow-2xl relative overflow-hidden text-center min-h-[440px] flex flex-col justify-between"
+            className="bg-neutral-950 border border-neutral-800 py-9 px-6 rounded-xl shadow-2xl relative overflow-hidden text-center min-h-[360px] flex flex-col justify-between"
           >
-            <div className="absolute top-0 right-0 w-24 h-24 bg-purple-500/5 rounded-full blur-2xl pointer-events-none" />
-            <div className="absolute bottom-0 left-0 w-24 h-24 bg-emerald-500/5 rounded-full blur-2xl pointer-events-none" />
 
             <div className="font-mono text-[10px] tracking-widest text-emerald-400 font-bold select-none">
               REALPAY
@@ -277,7 +469,7 @@ RealPay 实时薪水`;
               📅 {getFormattedDate()} · {getDayNameChinese()}
             </div>
 
-            {/* Stats Breakdown with gorgeous alignment */}
+            {/* Stats Breakdown */}
             <div className="mt-8 pt-6 border-t border-dashed border-neutral-800 space-y-3 font-mono text-xs text-neutral-400">
               <div className="flex justify-between">
                 <span className="text-neutral-600 font-medium">实时薪资:</span>
@@ -295,15 +487,20 @@ RealPay 实时薪水`;
               </div>
             </div>
 
-            <div className="mt-9 flex items-center justify-center gap-1 bg-purple-500/10 text-purple-300 border border-purple-500/20 py-1.5 px-3 rounded-full text-[10px] font-mono leading-none select-none">
-              <Award className="w-3.5 h-3.5 shrink-0" />
-              <span className="leading-snug">{slogan}</span>
+            {/* Slogan — unchanged from original */}
+            <div className="mt-9 bg-purple-500/10 text-purple-300 border border-purple-500/20 py-2.5 px-4 rounded-xl text-[10px] font-mono select-none text-center" data-slogan-outer>
+              <div className="inline-block text-left max-w-full">
+                <span className="inline-block align-middle mr-1.5 select-none">
+                  <Award className="w-5 h-5 text-purple-400 min-w-[16px]" />
+                </span>
+                <span className="inline-block align-middle leading-snug max-w-[calc(100%-22px)] text-[10px]">
+                  {slogan}
+                </span>
+              </div>
             </div>
           </div>
 
-          <p className="text-[10px] text-neutral-550 font-mono text-center leading-relaxed">
-            iOS / iPadOS 用户在生成图片失败时，系统将自动回退复制精美纯文本战报发送到您的剪贴板。
-          </p>
+
         </div>
 
         {/* Modal Buttons Footer */}
@@ -332,15 +529,6 @@ RealPay 实时薪水`;
           >
             <Download className="w-3.5 h-3.5 shrink-0" />
             <span>{downloading ? "正在渲染..." : "保存战报图片"}</span>
-          </button>
-
-          {/* Web Share (Social Direct Send) */}
-          <button
-            onClick={handleWebShare}
-            className="col-span-2 bg-purple-600 hover:bg-purple-500 text-white text-xs py-2 px-2 rounded-xl flex items-center justify-center gap-1.5 transition font-bold cursor-pointer"
-          >
-            <Share className="w-3.5 h-3.5" />
-            <span>调用系统分享</span>
           </button>
         </div>
       </div>

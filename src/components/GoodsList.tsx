@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
+import { motion, AnimatePresence } from "motion/react";
 
 interface GoodsListProps {
   currentEarned: number;
@@ -25,7 +26,7 @@ export default function GoodsList({ currentEarned }: GoodsListProps) {
     try {
       const saved = localStorage.getItem("realpay_prices_v2");
       if (saved) return JSON.parse(saved);
-    } catch {}
+    } catch { }
     return {
       kopi: 3.5,
       tea: 7.0,
@@ -39,10 +40,24 @@ export default function GoodsList({ currentEarned }: GoodsListProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [tempPrices, setTempPrices] = useState({ ...prices });
 
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (isEditing && containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsEditing(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isEditing]);
+
   const savePrices = () => {
     try {
       localStorage.setItem("realpay_prices_v2", JSON.stringify(tempPrices));
-    } catch {}
+    } catch { }
     setPrices(tempPrices);
     setIsEditing(false);
   };
@@ -53,10 +68,14 @@ export default function GoodsList({ currentEarned }: GoodsListProps) {
   };
 
   return (
-    <div className="buy-card">
+    <div
+      ref={containerRef}
+      className="buy-card transition-all duration-300"
+      style={{ borderColor: isEditing ? "#ffffff" : "var(--border)" }}
+    >
       <div className="buy-header">
         <span className="buy-title">此刻能买什么</span>
-        <button 
+        <button
           onClick={() => {
             setTempPrices({ ...prices });
             setIsEditing(!isEditing);
@@ -68,41 +87,51 @@ export default function GoodsList({ currentEarned }: GoodsListProps) {
       </div>
 
       {/* Editor Panel */}
-      <div className={`price-edit-panel ${isEditing ? "open" : ""}`}>
-        <div className="pe-head">
-          <span className="pe-title">自定义价格（RM）</span>
-          <button 
-            type="button"
-            className="pe-close" 
-            onClick={() => setIsEditing(false)}
+      <AnimatePresence initial={false}>
+        {isEditing && (
+          <motion.div
+            initial={{ height: 0, opacity: 0, marginBottom: 0 }}
+            animate={{ height: "auto", opacity: 1, marginBottom: 16 }}
+            exit={{ height: 0, opacity: 0, marginBottom: 0 }}
+            transition={{ duration: 0.3, ease: "easeInOut" }}
+            className="price-edit-panel open overflow-hidden"
           >
-            ✕ 关闭
-          </button>
-        </div>
-        <div className="pe-grid">
-          {GOODS_TEMPLATES.map((item) => (
-            <div key={item.id} className="pe-field">
-              <label>{item.emoji} {item.name}</label>
-              <input
-                type="number"
-                step="0.5"
-                min="0.5"
-                value={tempPrices[item.id] || item.defaultPrice}
-                onChange={(e) =>
-                  setTempPrices({
-                    ...tempPrices,
-                    [item.id]: Math.max(0.5, parseFloat(e.target.value) || 0.5),
-                  })
-                }
-              />
+            <div className="pe-head">
+              <span className="pe-title">自定义价格（RM）</span>
+              <button
+                type="button"
+                className="pe-close"
+                onClick={() => setIsEditing(false)}
+              >
+                ✕ 关闭
+              </button>
             </div>
-          ))}
-        </div>
-        <button className="pe-save" onClick={savePrices}>
-          保存价格 ✓
-        </button>
-        <div className="pe-hint">价格自动保存到本地 · JB 默认价格已预设</div>
-      </div>
+            <div className="pe-grid">
+              {GOODS_TEMPLATES.map((item) => (
+                <div key={item.id} className="pe-field">
+                  <label>{item.emoji} {item.name}</label>
+                  <input
+                    type="number"
+                    step="0.5"
+                    min="0.5"
+                    value={tempPrices[item.id] || item.defaultPrice}
+                    onChange={(e) =>
+                      setTempPrices({
+                        ...tempPrices,
+                        [item.id]: Math.max(0.5, parseFloat(e.target.value) || 0.5),
+                      })
+                    }
+                  />
+                </div>
+              ))}
+            </div>
+            <button className="pe-save" onClick={savePrices}>
+              保存价格 ✓
+            </button>
+            <div className="pe-hint">价格自动保存到本地 · JB 默认价格已预设</div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Buy-items grid */}
       <div className="buy-items">
