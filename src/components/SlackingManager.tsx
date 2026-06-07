@@ -228,7 +228,7 @@ export default function SlackingManager({
         <div className="slack-timer-label">本次摸鱼时长</div>
 
         <div className="slack-earned">
-          白拿了: <span>RM {((slacking && slackStart) ? (currentSessionMins * perMin) : 0).toFixed(2)}</span>
+          白拿了: <span>{settings.currency || "RM"} {((slacking && slackStart) ? (currentSessionMins * perMin) : 0).toFixed(2)}</span>
         </div>
 
         {/* Goal row */}
@@ -287,7 +287,7 @@ export default function SlackingManager({
           </div>
           <div className="eff-stat">
             <div className="eff-stat-v text-emerald-400" style={{ color: "var(--green)" }}>
-              RM {totalSlackEarned.toFixed(2)}
+              {settings.currency || "RM"} {totalSlackEarned.toFixed(2)}
             </div>
             <div className="eff-stat-l">摸鱼总收益</div>
           </div>
@@ -378,7 +378,7 @@ export default function SlackingManager({
                     <span>时长: {s.mins < 1 ? `${Math.round(s.mins * 60)}秒` : `${Math.round(s.mins)}分钟`}</span>
                   </div>
                   <div className="flex items-center gap-3">
-                    <span className="sli-right">RM {s.earned.toFixed(2)}</span>
+                    <span className="sli-right">{settings.currency || "RM"} {s.earned.toFixed(2)}</span>
                   </div>
                 </div>
               );

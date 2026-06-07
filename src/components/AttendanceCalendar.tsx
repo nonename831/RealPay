@@ -348,6 +348,13 @@ export default function AttendanceCalendar({
                           type="time"
                           value={editInTime}
                           onChange={(e) => setEditInTime(e.target.value)}
+                          onClick={(e) => {
+                            try {
+                              if ("showPicker" in e.currentTarget) {
+                                (e.currentTarget as any).showPicker();
+                              }
+                            } catch (_) { }
+                          }}
                           className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
                           style={{ fontSize: "16px" }}
                         />
@@ -370,6 +377,13 @@ export default function AttendanceCalendar({
                           type="time"
                           value={editOutTime || ""}
                           onChange={(e) => setEditOutTime(e.target.value)}
+                          onClick={(e) => {
+                            try {
+                              if ("showPicker" in e.currentTarget) {
+                                (e.currentTarget as any).showPicker();
+                              }
+                            } catch (_) { }
+                          }}
                           className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
                           style={{ fontSize: "16px" }}
                         />

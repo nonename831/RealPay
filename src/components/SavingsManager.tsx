@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { SavingsGoal } from "../types";
+import { SavingsGoal, AppSettings } from "../types";
 
 interface SavingsManagerProps {
+  settings: AppSettings;
   goals: SavingsGoal[];
   dailySal: number;
   onAddGoal: (goal: Omit<SavingsGoal, "id" | "createdAt">) => void;
@@ -11,6 +12,7 @@ interface SavingsManagerProps {
 }
 
 export default function SavingsManager({
+  settings,
   goals,
   dailySal,
   onAddGoal,
@@ -147,7 +149,7 @@ export default function SavingsManager({
                   />
                 </div>
                 <div className="sg-field">
-                  <label>目标金额 (RM)</label>
+                  <label>目标金额 ({settings.currency || "RM"})</label>
                   <input
                     type="number"
                     required
@@ -158,7 +160,7 @@ export default function SavingsManager({
                   />
                 </div>
                 <div className="sg-field">
-                  <label>已存 (RM)</label>
+                  <label>已存 ({settings.currency || "RM"})</label>
                   <input
                     type="number"
                     min="0"
@@ -205,7 +207,7 @@ export default function SavingsManager({
                   />
                 </div>
                 <div className="sg-field">
-                  <label>目标金额 (RM)</label>
+                  <label>目标金额 ({settings.currency || "RM"})</label>
                   <input
                     type="number"
                     required
@@ -215,7 +217,7 @@ export default function SavingsManager({
                   />
                 </div>
                 <div className="sg-field">
-                  <label>已保存金额 (RM)</label>
+                  <label>已保存金额 ({settings.currency || "RM"})</label>
                   <input
                     type="number"
                     min="0"
@@ -268,7 +270,7 @@ export default function SavingsManager({
                     step="any"
                     value={allocateAmount}
                     onChange={(e) => setAllocateAmount(e.target.value)}
-                    placeholder="RM 0.00"
+                    placeholder={`${settings.currency || "RM"} 0.00`}
                     className="flex-1"
                     style={{
                       background: "var(--surface2)",
@@ -368,7 +370,7 @@ export default function SavingsManager({
                     {remaining > 0 ? `还需 ${daysLeft} 个工作日` : "目标达成！"}
                   </span>
                   <span className="sg-total">
-                    已存 RM {g.currentSaved.toFixed(2)} / RM {g.targetAmount.toFixed(2)} ({pct.toFixed(0)}%)
+                    已存 {settings.currency || "RM"} {g.currentSaved.toFixed(2)} / {settings.currency || "RM"} {g.targetAmount.toFixed(2)} ({pct.toFixed(0)}%)
                   </span>
                 </div>
               </div>

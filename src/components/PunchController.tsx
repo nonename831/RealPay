@@ -190,6 +190,13 @@ export default function PunchController({
                   type="time"
                   value={editIn}
                   onChange={(e) => setEditIn(e.target.value)}
+                  onClick={(e) => {
+                    try {
+                      if ("showPicker" in e.currentTarget) {
+                        (e.currentTarget as any).showPicker();
+                      }
+                    } catch (_) { }
+                  }}
                   className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
                   style={{ fontSize: "16px" }}
                 />
@@ -211,6 +218,13 @@ export default function PunchController({
                   type="time"
                   value={editOut}
                   onChange={(e) => setEditOut(e.target.value)}
+                  onClick={(e) => {
+                    try {
+                      if ("showPicker" in e.currentTarget) {
+                        (e.currentTarget as any).showPicker();
+                      }
+                    } catch (_) { }
+                  }}
                   className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
                   style={{ fontSize: "16px" }}
                 />

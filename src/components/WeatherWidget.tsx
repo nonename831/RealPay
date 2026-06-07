@@ -161,12 +161,12 @@ export default function WeatherWidget({ settings }: WeatherWidgetProps) {
 
     if (isNight) {
       if (isRaining) {
-        return { text: "🌧 夜雨绵绵，出门注意防雨保暖", type: "warn" };
+        return { text: "🌧 夜雨，出门记得带伞", type: "warn" };
       }
       if (currentHour >= 19 && currentHour < 21) {
-        return { text: "🍽 晚饭时间！犒劳一下辛苦的自己", type: "go" };
+        return { text: "🍽 该吃晚饭了，好好犒劳自己", type: "go" };
       }
-      return { text: "🌙 夜深啦，早点休息不要熬夜哦", type: "go" };
+      return { text: "💤 夜深了，早点休息", type: "go" };
     }
 
     const [lsH, lsM] = settings.lunchStart.split(":").map(Number);
@@ -181,49 +181,49 @@ export default function WeatherWidget({ settings }: WeatherWidgetProps) {
     // 1. One Hour Before Clocking Off
     if (nowMins >= rainWarningMins && nowMins < endMins) {
       if (isRaining) {
-        return { text: "🌂 外面正在下雨，下班别忘了带好雨伞哦！", type: "warn" };
+        return { text: "🌂 下雨了，带好雨伞", type: "warn" };
       }
-      return { text: "🎒 准备下班啦，检查一下随身物品，带好雨伞哦", type: "go" };
+      return { text: "🎒 快下班了，带好随身物品", type: "go" };
     }
 
     // 2. Before Lunch
     if (nowMins < lunchStartMins) {
       if (isRaining) {
-        return { text: "☔ 下雨了，中午建议叫外卖或带好伞出去吃", type: "nah" };
+        return { text: "☔ 下雨，叫外卖或带伞", type: "nah" };
       }
       if (isVeryHot) {
-        return { text: "🥵 太热了，中午建议在空调房吃饭", type: "nah" };
+        return { text: "🥵 天太热，待在空调房", type: "nah" };
       }
-      return { text: "✓ 天气不错，中午可以出去吃顿好的", type: "go" };
+      return { text: "✓ 天气好，出去吃一顿", type: "go" };
     }
 
     // 3. During Lunch Break
     if (nowMins >= lunchStartMins && nowMins < lunchEndMins) {
       if (isRaining) {
-        return { text: "🌧 外面下着雨，午休安心吃个外卖休息吧", type: "nah" };
+        return { text: "🌧 下雨，叫外卖休息吧", type: "nah" };
       }
       if (isVeryHot) {
-        return { text: "🥵 午休时间！外面太阳很大，注意防暑", type: "nah" };
+        return { text: "🥵 太阳猛，注意防暑", type: "nah" };
       }
-      return { text: "✓ 吃饱喝足，可以散散步吹吹风，下午更有精神", type: "go" };
+      return { text: "✓ 饭后散散步，下午更精神", type: "go" };
     }
 
     // 4. Afternoon (After Lunch, Before the Final Work Hour)
     if (nowMins >= lunchEndMins && nowMins < rainWarningMins) {
       if (isRaining) {
-        return { text: "🌧 外面下着暴雨，安心在室内摸鱼工作吧", type: "nah" };
+        return { text: "🌧 暴雨，安心在室内摸鱼", type: "nah" };
       }
       if (isVeryHot) {
-        return { text: "🥤 下午天气炎热，别忘了多喝水、适度摸鱼休息", type: "go" };
+        return { text: "🥤 天热，多喝水适度休息", type: "go" };
       }
-      return { text: "☕ 下午时光，喝杯咖啡、伸个懒腰，打起精神来", type: "go" };
+      return { text: "☕ 喝杯咖啡，打起精神", type: "go" };
     }
 
     // 5. After Work Hours (But before 19:00 night time logic)
     if (isRaining) {
-      return { text: "🌧 已经下班啦，外面还下着雨，路滑注意安全", type: "warn" };
+      return { text: "🌧 下班了，路滑注意安全", type: "warn" };
     }
-    return { text: "✨ 已经快乐下班！享受属于你自己的时间吧", type: "go" };
+    return { text: "✨ 下班了！享受自己的时间", type: "go" };
   };
 
   const advice = getLunchAdvice();

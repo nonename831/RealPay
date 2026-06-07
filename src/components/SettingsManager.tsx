@@ -95,7 +95,7 @@ export default function SettingsManager({
       <div className="settings-card">
         <div className="s-grid mb-3">
           <div className="s-field">
-            <label htmlFor="monthly-salary">月薪 (RM)</label>
+            <label htmlFor="monthly-salary">月薪 ({settings.currency || "RM"})</label>
             <input
               type="number"
               id="monthly-salary"
@@ -143,6 +143,13 @@ export default function SettingsManager({
                 id="start-time"
                 value={settings.startTime}
                 onChange={(e) => handleSettingChange("startTime", e.target.value)}
+                onClick={(e) => {
+                  try {
+                    if ("showPicker" in e.currentTarget) {
+                      (e.currentTarget as any).showPicker();
+                    }
+                  } catch (_) { }
+                }}
                 className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
                 style={{ fontSize: "16px" }}
               />
@@ -174,6 +181,13 @@ export default function SettingsManager({
                 id="end-time"
                 value={settings.endTime}
                 onChange={(e) => handleSettingChange("endTime", e.target.value)}
+                onClick={(e) => {
+                  try {
+                    if ("showPicker" in e.currentTarget) {
+                      (e.currentTarget as any).showPicker();
+                    }
+                  } catch (_) { }
+                }}
                 className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
                 style={{ fontSize: "16px" }}
               />
@@ -182,7 +196,7 @@ export default function SettingsManager({
         </div>
 
         <div className="s-grid">
-          <div className="s-field span2">
+          <div className="s-field">
             <label htmlFor="ot-rate-select">加班付费倍数</label>
             <select
               id="ot-rate-select"
@@ -202,9 +216,33 @@ export default function SettingsManager({
                 cursor: "pointer",
               }}
             >
-              <option value="1.5">1.5x (日常普通加班)</option>
-              <option value="2.0">2.0x (周末特别加班)</option>
-              <option value="3.0">3.0x (公假超级加倍)</option>
+              <option value="1.5">1.5x (普通加班)</option>
+              <option value="2.0">2.0x (周末加班)</option>
+              <option value="3.0">3.0x (公假加倍)</option>
+            </select>
+          </div>
+          <div className="s-field">
+            <label htmlFor="currency-select">结算币种 (Currency)</label>
+            <select
+              id="currency-select"
+              value={settings.currency || "RM"}
+              onChange={(e) => handleSettingChange("currency", e.target.value as "RM" | "SGD")}
+              style={{
+                background: "var(--surface2)",
+                border: "1px solid var(--border)",
+                borderRadius: "9px",
+                color: "var(--text)",
+                fontFamily: "var(--mono)",
+                fontSize: "15px",
+                fontWeight: 500,
+                padding: "11px 12px",
+                outline: "none",
+                width: "100%",
+                cursor: "pointer",
+              }}
+            >
+              <option value="RM">RM (马来西亚)</option>
+              <option value="SGD">SGD (新加坡)</option>
             </select>
           </div>
         </div>
@@ -268,6 +306,13 @@ export default function SettingsManager({
                 id="lunch-start"
                 value={settings.lunchStart}
                 onChange={(e) => handleSettingChange("lunchStart", e.target.value)}
+                onClick={(e) => {
+                  try {
+                    if ("showPicker" in e.currentTarget) {
+                      (e.currentTarget as any).showPicker();
+                    }
+                  } catch (_) { }
+                }}
                 className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
                 style={{ fontSize: "16px" }}
               />
@@ -298,6 +343,13 @@ export default function SettingsManager({
                 id="lunch-end"
                 value={settings.lunchEnd}
                 onChange={(e) => handleSettingChange("lunchEnd", e.target.value)}
+                onClick={(e) => {
+                  try {
+                    if ("showPicker" in e.currentTarget) {
+                      (e.currentTarget as any).showPicker();
+                    }
+                  } catch (_) { }
+                }}
                 className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
                 style={{ fontSize: "16px" }}
               />
@@ -334,6 +386,13 @@ export default function SettingsManager({
                 type="time"
                 value={queryStart}
                 onChange={(e) => setQueryStart(e.target.value)}
+                onClick={(e) => {
+                  try {
+                    if ("showPicker" in e.currentTarget) {
+                      (e.currentTarget as any).showPicker();
+                    }
+                  } catch (_) { }
+                }}
                 className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
                 style={{ fontSize: "16px" }}
               />
@@ -363,6 +422,13 @@ export default function SettingsManager({
                 type="time"
                 value={queryEnd}
                 onChange={(e) => setQueryEnd(e.target.value)}
+                onClick={(e) => {
+                  try {
+                    if ("showPicker" in e.currentTarget) {
+                      (e.currentTarget as any).showPicker();
+                    }
+                  } catch (_) { }
+                }}
                 className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
                 style={{ fontSize: "16px" }}
               />
@@ -380,7 +446,7 @@ export default function SettingsManager({
               自 {fmt12(queryStart)} 至 {fmt12(queryEnd)} (有效计薪时长 {queryActiveMins} 分钟)
             </div>
             <div className="qresult-val">
-              RM {queryResult.toFixed(2)}
+              {settings.currency || "RM"} {queryResult.toFixed(2)}
             </div>
           </div>
         )}
@@ -415,7 +481,7 @@ export default function SettingsManager({
                 <div className="flex justify-between border-b border-neutral-850 pb-1.5 select-none">
                   <span className="font-bold text-neutral-200">{h.month}</span>
                   <span className="text-green-400 font-bold">
-                    薪酬: RM {(h.totalBaseEarned + h.totalOTEarned).toFixed(2)}
+                    薪酬: {settings.currency || "RM"} {(h.totalBaseEarned + h.totalOTEarned).toFixed(2)}
                   </span>
                 </div>
                 <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[10px] text-neutral-400">
@@ -425,11 +491,11 @@ export default function SettingsManager({
                   </div>
                   <div className="flex justify-between">
                     <span>基础薪水</span>
-                    <span className="text-neutral-300">RM {h.totalBaseEarned.toFixed(2)}</span>
+                    <span className="text-neutral-300">{settings.currency || "RM"} {h.totalBaseEarned.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span>加班补偿</span>
-                    <span className="text-neutral-300">RM {h.totalOTEarned.toFixed(2)}</span>
+                    <span className="text-neutral-300">{settings.currency || "RM"} {h.totalOTEarned.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span>摸鱼漏时</span>
@@ -438,7 +504,7 @@ export default function SettingsManager({
                 </div>
                 <div className="bg-[#7c3aed]/5 border border-[#7c3aed]/12 rounded-lg p-1.5 flex justify-between text-[9px] text-purple-300 select-none">
                   <span>白拿公款：</span>
-                  <span className="font-bold">RM {h.totalSlackEarned.toFixed(2)}</span>
+                  <span className="font-bold">{settings.currency || "RM"} {h.totalSlackEarned.toFixed(2)}</span>
                 </div>
               </div>
             ))}

@@ -7,6 +7,7 @@ export interface AppSettings {
   lunchEnd: string;   // "HH:MM"
   overtimeRate: number; // 1.5, 2.0, 3.0
   workWeekdays?: number[]; // [0-6] where 0 is Sunday, 1 is Monday, etc.
+  currency?: "RM" | "SGD";
 }
 
 export interface SlackSession {

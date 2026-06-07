@@ -251,6 +251,7 @@ interface ShareModalProps {
   workDaysPassed: number;
   totalWorkDays: number;
   onClose: () => void;
+  currency?: string;
 }
 
 export default function ShareModal({
@@ -261,6 +262,7 @@ export default function ShareModal({
   workDaysPassed,
   totalWorkDays,
   onClose,
+  currency = "RM",
 }: ShareModalProps) {
   const [copied, setCopied] = useState(false);
   const [downloading, setDownloading] = useState(false);
@@ -291,9 +293,9 @@ export default function ShareModal({
     return `💰 【RealPay 战报】 💰
 -------------------------------
 📅 时间: ${getFormattedDate()} (${getDayNameChinese()})
-💵 今日已赚: RM ${earnedAmount.toFixed(2)}
-⏱️ 实时薪资: RM ${perHour.toFixed(2)}/小时
-📊 日薪总额: RM ${dailySal.toFixed(2)}
+💵 今日已赚: ${currency} ${earnedAmount.toFixed(2)}
+⏱️ 实时薪资: ${currency} ${perHour.toFixed(2)}/小时
+📊 日薪总额: ${currency} ${dailySal.toFixed(2)}
 📆 本月打卡日: 第 ${workDaysPassed} 工作日 / 共 ${totalWorkDays} 天
 📈 月度打卡进度: ${monthlyProgressPct.toFixed(0)}%
 -------------------------------
@@ -458,7 +460,7 @@ RealPay 实时薪水`;
                 今日累计奋斗所得
               </span>
               <div className="flex items-baseline justify-center gap-1">
-                <span className="font-mono font-light text-neutral-405 text-xl">RM</span>
+                <span className="font-mono font-light text-neutral-405 text-xl">{currency}</span>
                 <span className="font-mono font-bold text-neutral-100 text-5xl tracking-tight">
                   {earnedAmount.toFixed(2)}
                 </span>
@@ -473,11 +475,11 @@ RealPay 实时薪水`;
             <div className="mt-8 pt-6 border-t border-dashed border-neutral-800 space-y-3 font-mono text-xs text-neutral-400">
               <div className="flex justify-between">
                 <span className="text-neutral-600 font-medium">实时薪资:</span>
-                <span className="font-bold text-neutral-200">RM {perHour.toFixed(2)} / 小时</span>
+                <span className="font-bold text-neutral-200">{currency} {perHour.toFixed(2)} / 小时</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-neutral-600 font-medium">日薪基准:</span>
-                <span className="font-bold text-neutral-200">RM {dailySal.toFixed(2)}</span>
+                <span className="font-bold text-neutral-200">{currency} {dailySal.toFixed(2)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-neutral-600 font-medium">月度进度:</span>

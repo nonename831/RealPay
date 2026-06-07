@@ -39,6 +39,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   lunchEnd: "14:00",
   overtimeRate: 1.5,
   workWeekdays: [1, 2, 3, 4, 5],
+  currency: "RM",
 };
 
 const formatAmPm = (date: Date | null, defaultStr: string): string => {
@@ -74,6 +75,9 @@ export default function App() {
     const loaded = storage.get<AppSettings>(SETTINGS_KEY, DEFAULT_SETTINGS);
     if (!loaded.workWeekdays) {
       loaded.workWeekdays = [1, 2, 3, 4, 5];
+    }
+    if (!loaded.currency) {
+      loaded.currency = "RM";
     }
     return loaded;
   });
@@ -788,7 +792,7 @@ export default function App() {
             <div
               className={`hero ${slacking ? "slacking" : ""} ${isHoliday ? "holiday" : ""} ${metrics.isOT ? "overtime" : ""}`}
               onClick={() => {
-                navigator.clipboard.writeText(`RM ${metrics.totalEarned.toFixed(2)}`);
+                navigator.clipboard.writeText(`${settings.currency || "RM"} ${metrics.totalEarned.toFixed(2)}`);
                 const toast = document.getElementById("copy-toast");
                 if (toast) {
                   toast.classList.add("show");
@@ -800,7 +804,7 @@ export default function App() {
               <div className="copy-toast" id="copy-toast">已复制 ✓</div>
               <div className="hero-label">今日已赚 · 点击复制</div>
               <div className="hero-amount">
-                <span className="hero-rm">RM</span>
+                <span className="hero-rm">{settings.currency || "RM"}</span>
                 <span className={`hero-num ${slacking ? "slacking" :
                     metrics.isOT ? "overtime" :
                       isHoliday ? "holiday" : "live"
@@ -835,7 +839,7 @@ export default function App() {
               <div className="ot-banner" id="ot-banner">
                 <div className="ot-left">
                   <span className="ot-tag">⏰ 加班中</span>
-                  <span className="ot-val">RM {metrics.earnedOT.toFixed(2)}</span>
+                  <span className="ot-val">{settings.currency || "RM"} {metrics.earnedOT.toFixed(2)}</span>
                 </div>
                 <div className="ot-right">
                   <div className="ot-time">
@@ -844,7 +848,7 @@ export default function App() {
                     {String(metrics.otSecs % 60).padStart(2, "0")}
                   </div>
                   <div className="ot-rate">
-                    {settings.overtimeRate}x · RM {payPerHour.toFixed(2)}/hr
+                    {settings.overtimeRate}x · {settings.currency || "RM"} {payPerHour.toFixed(2)}/hr
                   </div>
                 </div>
               </div>
@@ -854,7 +858,7 @@ export default function App() {
             {punchOutTime && metrics.earnedOT > 0 && (
               <div className="today-full select-none">
                 <span className="tf-lbl">今日奋斗所得 (底薪 + 加班)</span>
-                <span className="tf-val">RM {metrics.totalEarned.toFixed(2)}</span>
+                <span className="tf-val">{settings.currency || "RM"} {metrics.totalEarned.toFixed(2)}</span>
               </div>
             )}
 
@@ -875,7 +879,7 @@ export default function App() {
               </div>
               <div className="mp-sub">
                 <span>第 {mProgress.workDaysPassed} / {settings.workDays} 工作日</span>
-                <span>本月预计提现: <span className="mp-earned">RM {mProgress.estimatedBaseEarned.toFixed(2)}</span></span>
+                <span>本月预计提现: <span className="mp-earned">{settings.currency || "RM"} {mProgress.estimatedBaseEarned.toFixed(2)}</span></span>
               </div>
             </div>
 
@@ -891,7 +895,7 @@ export default function App() {
             <div className="rates select-none">
               <div className="rate">
                 <div className="rate-v">{payPerSec.toFixed(3)}</div>
-                <div className="rate-l">每秒 RM</div>
+                <div className="rate-l">每秒 {settings.currency || "RM"}</div>
               </div>
               <div className="rate">
                 <div className="rate-v">{payPerMin.toFixed(2)}</div>
@@ -906,7 +910,7 @@ export default function App() {
             {/* General daily earned overview and status clocks */}
             <div className="today-full select-none">
               <span className="tf-lbl">今日应得总计</span>
-              <span className="tf-val">RM {dailySal.toFixed(2)}</span>
+              <span className="tf-val">{punchInTime ? `${settings.currency || "RM"} ${dailySal.toFixed(2)}` : "—"}</span>
             </div>
 
             <div className="status-bar select-none">
@@ -915,10 +919,11 @@ export default function App() {
             </div>
 
             {/* Customizable pricing consumer grids */}
-            <GoodsList currentEarned={metrics.totalEarned} />
+            <GoodsList settings={settings} currentEarned={metrics.totalEarned} />
 
             {/* Floating multiple Savings goals */}
             <SavingsManager
+              settings={settings}
               goals={savingsGoals}
               dailySal={dailySal}
               onAddGoal={handleAddGoal}

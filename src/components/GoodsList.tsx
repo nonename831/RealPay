@@ -1,8 +1,11 @@
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 
+import { AppSettings } from "../types";
+
 interface GoodsListProps {
   currentEarned: number;
+  settings?: AppSettings;
 }
 
 interface GoodItem {
@@ -21,7 +24,7 @@ const GOODS_TEMPLATES: GoodItem[] = [
   { id: "grab", emoji: "🚗", name: "Grab", defaultPrice: 12.0 },
 ];
 
-export default function GoodsList({ currentEarned }: GoodsListProps) {
+export default function GoodsList({ currentEarned, settings }: GoodsListProps) {
   const [prices, setPrices] = useState<{ [id: string]: number }>(() => {
     try {
       const saved = localStorage.getItem("realpay_prices_v2");
@@ -97,7 +100,7 @@ export default function GoodsList({ currentEarned }: GoodsListProps) {
             className="price-edit-panel open overflow-hidden"
           >
             <div className="pe-head">
-              <span className="pe-title">自定义价格（RM）</span>
+              <span className="pe-title">自定义价格（{settings?.currency || "RM"}）</span>
               <button
                 type="button"
                 className="pe-close"
@@ -144,7 +147,7 @@ export default function GoodsList({ currentEarned }: GoodsListProps) {
             <div key={item.id} className={`buy-item ${affordable ? "can" : ""}`}>
               <span className="buy-emoji">{item.emoji}</span>
               <span className="buy-name">{item.name}</span>
-              <span className="buy-price">RM {price.toFixed(2)}</span>
+              <span className="buy-price">{settings?.currency || "RM"} {price.toFixed(2)}</span>
               <span className={`buy-val ${affordable ? "can" : ""}`}>
                 {affordable ? `${count}x` : "—"}
               </span>
