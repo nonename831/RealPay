@@ -8,6 +8,7 @@ export interface AppSettings {
   overtimeRate: number; // 1.5, 2.0, 3.0
   workWeekdays?: number[]; // [0-6] where 0 is Sunday, 1 is Monday, etc.
   currency?: "RM" | "SGD";
+  enableCommission?: boolean;
 }
 
 export interface SlackSession {
@@ -49,3 +50,14 @@ export interface MonthHistory {
   totalSlackMins: number;
   totalSlackEarned: number;
 }
+
+export interface CommissionEntry {
+  id: string;
+  date: string; // "YYYY-MM-DD" matching the date the commission was earned
+  label: string; // Deal title or client name
+  amount: number; // Commission money earned
+  createdAt: string; // ISO string
+  salesAmount?: number; // Optional sales amount
+  rate?: number; // Optional rate percentage (e.g., 5)
+}
+

@@ -33,7 +33,7 @@ export default function SettingsManager({
 
   const [showSavedIndicator, setShowSavedIndicator] = useState(false);
 
-  const handleSettingChange = (key: keyof AppSettings, value: string | number | number[]) => {
+  const handleSettingChange = (key: keyof AppSettings, value: string | number | boolean | number[]) => {
     onUpdateSettings({
       ...settings,
       [key]: value,
@@ -272,6 +272,41 @@ export default function SettingsManager({
               </select>
             </div>
           </div>
+          <div className="s-field">
+            <label htmlFor="commission-toggle">是否有抽佣金 / 业绩提成？</label>
+            <div className="relative flex items-center">
+              <input
+                type="text"
+                readOnly
+                value={
+                  settings.enableCommission ? "是 (开启提成开单助手)" : "否 (关闭提成功能)"
+                }
+                style={{
+                  padding: "11px 32px 11px 12px",
+                  background: "var(--surface2)",
+                  border: "1px solid var(--border)",
+                  borderRadius: "9px",
+                  color: "var(--text)",
+                  fontFamily: "var(--mono)",
+                  fontSize: "15px",
+                  fontWeight: 500,
+                  outline: "none",
+                  width: "100%",
+                }}
+              />
+              <span className="absolute right-3.5 pointer-events-none text-neutral-500 text-[10px]">▼</span>
+              <select
+                id="commission-toggle"
+                value={settings.enableCommission ? "true" : "false"}
+                onChange={(e) => handleSettingChange("enableCommission", e.target.value === "true")}
+                className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                style={{ fontSize: "16px" }}
+              >
+                <option value="false">否 (我只拿固定薪资/时薪)</option>
+                <option value="true">是 (我有抽成/开单/卖货提成)</option>
+              </select>
+            </div>
+          </div>
         </div>
 
         <div className="mt-2.5 pt-1.5">
@@ -291,8 +326,8 @@ export default function SettingsManager({
                     handleSettingChange("workWeekdays", next);
                   }}
                   className={`py-2 rounded-xl border font-mono text-center text-sm font-bold transition-all duration-200 cursor-pointer ${active
-                    ? "bg-emerald-500/15 border-emerald-500/50 text-emerald-400"
-                    : "bg-[#1b1b1b]/60 border-neutral-800/80 text-neutral-400 hover:border-neutral-700 hover:text-neutral-200"
+                      ? "bg-emerald-500/15 border-emerald-500/50 text-emerald-400"
+                      : "bg-[#1b1b1b]/60 border-neutral-800/80 text-neutral-400 hover:border-neutral-700 hover:text-neutral-200"
                     }`}
                   style={{ touchAction: "manipulation" }}
                 >

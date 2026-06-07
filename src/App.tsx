@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from "react";
-import { AppSettings, SlackSession, SavingsGoal, MonthHistory, PunchRecord } from "./types";
+import { AppSettings, SlackSession, SavingsGoal, MonthHistory, PunchRecord, CommissionEntry } from "./types";
 import { storage } from "./utils/storage";
 import { computeCurrentEarnings, toMins, fmt12, fmt12Full, isSystem12Hour } from "./utils/calculations";
 
@@ -7,6 +7,7 @@ import { computeCurrentEarnings, toMins, fmt12, fmt12Full, isSystem12Hour } from
 import WeatherWidget from "./components/WeatherWidget";
 import PunchController from "./components/PunchController";
 import SavingsManager from "./components/SavingsManager";
+import CommissionManager from "./components/CommissionManager";
 import SlackingManager from "./components/SlackingManager";
 import GoodsList from "./components/GoodsList";
 import ShareModal from "./components/ShareModal";
@@ -25,6 +26,7 @@ const ALL_PUNCHES_KEY = "realpay_all_punches_v3";
 const HISTORY_KEY = "realpay_history_v3";
 const WEEK_KEY = "realpay_week_v3";
 const HOLIDAY_KEY = "realpay_holiday_v3";
+const COMMISSION_KEY = "realpay_commission_v3";
 const LAST_DATE_KEY = "realpay_last_date_v3";
 const SLACKING_ACTIVE_KEY = "realpay_slacking_active_v3";
 const SLACK_START_KEY = "realpay_slack_start_v3";
@@ -40,6 +42,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   overtimeRate: 1.5,
   workWeekdays: [1, 2, 3, 4, 5],
   currency: "RM",
+  enableCommission: false,
 };
 
 const formatAmPm = (date: Date | null, defaultStr: string): string => {
@@ -99,6 +102,10 @@ export default function App() {
 
   const [savingsGoals, setSavingsGoals] = useState<SavingsGoal[]>(() =>
     storage.get<SavingsGoal[]>(SAVINGS_KEY, [])
+  );
+
+  const [commissions, setCommissions] = useState<CommissionEntry[]>(() =>
+    storage.get<CommissionEntry[]>(COMMISSION_KEY, [])
   );
 
   const [punchRecord, setPunchRecord] = useState<PunchRecord | null>(() =>
@@ -544,6 +551,35 @@ export default function App() {
     storage.set(SAVINGS_KEY, updated);
   };
 
+  const handleAddCommission = (label: string, amount: number, salesAmount?: number, rate?: number) => {
+    const newComm: CommissionEntry = {
+      id: "comm-" + Math.random().toString(36).substring(2, 9),
+      date: getTodayStr(now),
+      label,
+      amount,
+      salesAmount,
+      rate,
+      createdAt: new Date().toISOString(),
+    };
+    const updated = [newComm, ...commissions];
+    setCommissions(updated);
+    storage.set(COMMISSION_KEY, updated);
+  };
+
+  const handleDeleteCommission = (id: string) => {
+    const updated = commissions.filter((c) => c.id !== id);
+    setCommissions(updated);
+    storage.set(COMMISSION_KEY, updated);
+  };
+
+  const handleUpdateCommission = (id: string, label: string, amount: number, salesAmount?: number, rate?: number) => {
+    const updated = commissions.map((c) =>
+      c.id === id ? { ...c, label, amount, salesAmount, rate } : c
+    );
+    setCommissions(updated);
+    storage.set(COMMISSION_KEY, updated);
+  };
+
   const handleClearHistory = () => {
     setHistory([]);
     storage.remove(HISTORY_KEY);
@@ -572,7 +608,16 @@ export default function App() {
     punchOutTime
   );
 
-  const earnedFormatted = metrics.totalEarned.toFixed(2);
+  const todayStr = getTodayStr(now);
+  const todayCommissions = commissions.filter((c) => c.date === todayStr);
+  const todayCommissionTotal = settings.enableCommission
+    ? todayCommissions.reduce((sum, c) => sum + c.amount, 0)
+    : 0;
+
+  // Combined daily earnings (Hourly tracking + overtime + commissions - slacking sessions)
+  const todayTotalEarned = metrics.totalEarned + todayCommissionTotal;
+
+  const earnedFormatted = todayTotalEarned.toFixed(2);
   useEffect(() => {
     if (earnedFormatted !== "0.00") {
       setIsPopping(true);
@@ -597,12 +642,18 @@ export default function App() {
       (p) => p.date.startsWith(currentMonthStr) && p.inTime
     ).length;
     const progressPct = Math.min(100, (workDaysPassed / settings.workDays) * 100);
-    const estimatedBaseEarned = workDaysPassed * dailySal;
+
+    const monthlyCommissions = commissions.filter((c) => c.date.startsWith(currentMonthStr));
+    const monthlyCommissionTotal = settings.enableCommission
+      ? monthlyCommissions.reduce((sum, c) => sum + c.amount, 0)
+      : 0;
+    const estimatedBaseEarned = workDaysPassed * dailySal + monthlyCommissionTotal;
 
     return {
       workDaysPassed,
       progressPct,
       estimatedBaseEarned,
+      monthlyCommissionTotal,
     };
   };
 
@@ -792,7 +843,7 @@ export default function App() {
             <div
               className={`hero ${slacking ? "slacking" : ""} ${isHoliday ? "holiday" : ""} ${metrics.isOT ? "overtime" : ""}`}
               onClick={() => {
-                navigator.clipboard.writeText(`${settings.currency || "RM"} ${metrics.totalEarned.toFixed(2)}`);
+                navigator.clipboard.writeText(`${settings.currency || "RM"} ${todayTotalEarned.toFixed(2)}`);
                 const toast = document.getElementById("copy-toast");
                 if (toast) {
                   toast.classList.add("show");
@@ -809,7 +860,7 @@ export default function App() {
                     metrics.isOT ? "overtime" :
                       isHoliday ? "holiday" : "live"
                   } ${isPopping ? "pop" : ""}`}>
-                  {metrics.totalEarned.toFixed(2)}
+                  {todayTotalEarned.toFixed(2)}
                 </span>
               </div>
               <div className="hero-date">
@@ -858,8 +909,20 @@ export default function App() {
             {punchOutTime && metrics.earnedOT > 0 && (
               <div className="today-full select-none">
                 <span className="tf-lbl">今日奋斗所得 (底薪 + 加班)</span>
-                <span className="tf-val">{settings.currency || "RM"} {metrics.totalEarned.toFixed(2)}</span>
+                <span className="tf-val">{settings.currency || "RM"} {todayTotalEarned.toFixed(2)}</span>
               </div>
+            )}
+
+            {/* Commission Manager Component */}
+            {settings.enableCommission && (
+              <CommissionManager
+                settings={settings}
+                commissions={commissions}
+                todayStr={todayStr}
+                onAddCommission={handleAddCommission}
+                onUpdateCommission={handleUpdateCommission}
+                onDeleteCommission={handleDeleteCommission}
+              />
             )}
 
             {/* Local cached weather module */}
@@ -879,7 +942,14 @@ export default function App() {
               </div>
               <div className="mp-sub">
                 <span>第 {mProgress.workDaysPassed} / {settings.workDays} 工作日</span>
-                <span>本月预计提现: <span className="mp-earned">{settings.currency || "RM"} {mProgress.estimatedBaseEarned.toFixed(2)}</span></span>
+                <span className="text-right">
+                  本月预计提现: <span className="mp-earned">{settings.currency || "RM"} {mProgress.estimatedBaseEarned.toFixed(2)}</span>
+                  {mProgress.monthlyCommissionTotal > 0 && (
+                    <span className="block text-[9px] text-[#818cf8] mt-0.5">
+                      (含提成: {settings.currency || "RM"} {mProgress.monthlyCommissionTotal.toFixed(2)})
+                    </span>
+                  )}
+                </span>
               </div>
             </div>
 
@@ -919,7 +989,7 @@ export default function App() {
             </div>
 
             {/* Customizable pricing consumer grids */}
-            <GoodsList settings={settings} currentEarned={metrics.totalEarned} />
+            <GoodsList settings={settings} currentEarned={todayTotalEarned} />
 
             {/* Floating multiple Savings goals */}
             <SavingsManager
@@ -992,7 +1062,7 @@ export default function App() {
       {/* Elegant floating modal share card dialog */}
       {showShareModal && (
         <ShareModal
-          earnedAmount={metrics.totalEarned}
+          earnedAmount={todayTotalEarned}
           perHour={payPerHour}
           dailySal={dailySal}
           monthlyProgressPct={mProgress.progressPct}
