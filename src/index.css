@@ -298,6 +298,15 @@ body {
   transition: background 0.4s;
 }
 
+@media (max-width: 640px) {
+  .hero-glow {
+    width: 200px;
+    height: 200px;
+    top: -65px;
+    right: -50px;
+  }
+}
+
 .hero.slacking .hero-glow {
   background: var(--purple-glow);
 }
@@ -1199,6 +1208,15 @@ body {
   right: -60px;
   pointer-events: none;
   transition: background 0.4s;
+}
+
+@media (max-width: 640px) {
+  .slack-glow {
+    width: 180px;
+    height: 180px;
+    top: -55px;
+    right: -45px;
+  }
 }
 
 .slack-glow.over {
