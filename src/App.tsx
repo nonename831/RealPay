@@ -998,7 +998,7 @@ export default function App() {
           monthlyProgressPct={mProgress.progressPct}
           workDaysPassed={mProgress.workDaysPassed}
           totalWorkDays={settings.workDays}
-          currency={settings.currency}   // ← 加这行
+          currency={settings.currency}
           onClose={() => {
             setShowShareModal(false);
             window.scrollTo({ top: 0, behavior: "smooth" });
