@@ -195,55 +195,80 @@ export default function SettingsManager({
           </div>
         </div>
 
-        <div className="s-grid">
+        {/* 加班倍数 + 币种 — 单列避免手机溢出 */}
+        <div className="space-y-3 mb-1">
           <div className="s-field">
             <label htmlFor="ot-rate-select">加班付费倍数</label>
-            <select
-              id="ot-rate-select"
-              value={settings.overtimeRate}
-              onChange={(e) => handleSettingChange("overtimeRate", parseFloat(e.target.value))}
-              style={{
-                background: "var(--surface2)",
-                border: "1px solid var(--border)",
-                borderRadius: "9px",
-                color: "var(--text)",
-                fontFamily: "var(--mono)",
-                fontSize: "15px",
-                fontWeight: 500,
-                padding: "11px 12px",
-                outline: "none",
-                width: "100%",
-                cursor: "pointer",
-              }}
-            >
-              <option value="1.5">1.5x (普通加班)</option>
-              <option value="2.0">2.0x (周末加班)</option>
-              <option value="3.0">3.0x (公假加倍)</option>
-            </select>
+            <div className="relative flex items-center">
+              <input
+                type="text"
+                readOnly
+                value={
+                  settings.overtimeRate === 1.5 ? "1.5x (普通加班)"
+                    : settings.overtimeRate === 2.0 ? "2.0x (周末加班)"
+                      : "3.0x (公假加倍)"
+                }
+                style={{
+                  padding: "11px 32px 11px 12px",
+                  background: "var(--surface2)",
+                  border: "1px solid var(--border)",
+                  borderRadius: "9px",
+                  color: "var(--text)",
+                  fontFamily: "var(--mono)",
+                  fontSize: "15px",
+                  fontWeight: 500,
+                  outline: "none",
+                  width: "100%",
+                }}
+              />
+              <span className="absolute right-3.5 pointer-events-none text-neutral-500 text-[10px]">▼</span>
+              <select
+                id="ot-rate-select"
+                value={settings.overtimeRate}
+                onChange={(e) => handleSettingChange("overtimeRate", parseFloat(e.target.value))}
+                className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                style={{ fontSize: "16px" }}
+              >
+                <option value="1.5">1.5x (普通加班)</option>
+                <option value="2.0">2.0x (周末加班)</option>
+                <option value="3.0">3.0x (公假加倍)</option>
+              </select>
+            </div>
           </div>
           <div className="s-field">
-            <label htmlFor="currency-select">结算币种 (Currency)</label>
-            <select
-              id="currency-select"
-              value={settings.currency || "RM"}
-              onChange={(e) => handleSettingChange("currency", e.target.value as "RM" | "SGD")}
-              style={{
-                background: "var(--surface2)",
-                border: "1px solid var(--border)",
-                borderRadius: "9px",
-                color: "var(--text)",
-                fontFamily: "var(--mono)",
-                fontSize: "15px",
-                fontWeight: 500,
-                padding: "11px 12px",
-                outline: "none",
-                width: "100%",
-                cursor: "pointer",
-              }}
-            >
-              <option value="RM">RM (马来西亚)</option>
-              <option value="SGD">SGD (新加坡)</option>
-            </select>
+            <label htmlFor="currency-select">结算币种</label>
+            <div className="relative flex items-center">
+              <input
+                type="text"
+                readOnly
+                value={
+                  (settings.currency || "RM") === "RM" ? "RM (马来西亚)" : "SGD (新加坡)"
+                }
+                style={{
+                  padding: "11px 32px 11px 12px",
+                  background: "var(--surface2)",
+                  border: "1px solid var(--border)",
+                  borderRadius: "9px",
+                  color: "var(--text)",
+                  fontFamily: "var(--mono)",
+                  fontSize: "15px",
+                  fontWeight: 500,
+                  outline: "none",
+                  width: "100%",
+                }}
+              />
+              <span className="absolute right-3.5 pointer-events-none text-neutral-500 text-[10px]">▼</span>
+              <select
+                id="currency-select"
+                value={settings.currency || "RM"}
+                onChange={(e) => handleSettingChange("currency", e.target.value as "RM" | "SGD")}
+                className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                style={{ fontSize: "16px" }}
+              >
+                <option value="RM">RM (马来西亚)</option>
+                <option value="SGD">SGD (新加坡)</option>
+              </select>
+            </div>
           </div>
         </div>
 
@@ -264,8 +289,8 @@ export default function SettingsManager({
                     handleSettingChange("workWeekdays", next);
                   }}
                   className={`py-2 rounded-xl border font-mono text-center text-sm font-bold transition-all duration-200 cursor-pointer ${active
-                      ? "bg-emerald-500/15 border-emerald-500/50 text-emerald-400"
-                      : "bg-[#1b1b1b]/60 border-neutral-800/80 text-neutral-400 hover:border-neutral-700 hover:text-neutral-200"
+                    ? "bg-emerald-500/15 border-emerald-500/50 text-emerald-400"
+                    : "bg-[#1b1b1b]/60 border-neutral-800/80 text-neutral-400 hover:border-neutral-700 hover:text-neutral-200"
                     }`}
                   style={{ touchAction: "manipulation" }}
                 >
