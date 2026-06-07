@@ -97,16 +97,6 @@ export function computeCurrentEarnings(
   const dailySal = settings.monthlySalary / settings.workDays;
   const payPerMin = dailySal / totalWorkMin;
 
-  // Let's check effective times based on punch records
-  // If punch-in is set, starting time is either custom punch-in or startM
-  const effectiveStart = punchIn
-    ? punchIn.getHours() * 60 + punchIn.getMinutes() + punchIn.getSeconds() / 60
-    : startM;
-
-  const effectiveEnd = punchOut
-    ? punchOut.getHours() * 60 + punchOut.getMinutes() + punchOut.getSeconds() / 60
-    : endM;
-
   if (isHoliday) {
     return {
       statusLabel: "公假",
@@ -138,26 +128,51 @@ export function computeCurrentEarnings(
     };
   }
 
-  // Punched out case
-  if (punchOut && punchIn) {
-    // If punched out, state is frozen.
-    // Base earnings are capped at dailySal, calculated from punchIn to punchOut (excluding lunch)
-    const totalElapsed = effectiveEnd - effectiveStart;
-    const lunchInElapsed = Math.max(0, Math.min(effectiveEnd, lunchE) - Math.max(effectiveStart, lunchS));
-    const activeWorkMins = Math.max(0, totalElapsed - lunchInElapsed);
+  // Calculate effective start and end times in minutes
+  const effectiveStart = punchIn.getHours() * 60 + punchIn.getMinutes() + punchIn.getSeconds() / 60;
+  const effectiveEnd = punchOut
+    ? punchOut.getHours() * 60 + punchOut.getMinutes() + punchOut.getSeconds() / 60
+    : nowMins;
 
-    const earnedBase = Math.min(dailySal, activeWorkMins * payPerMin);
-    const progressPct = Math.min(100, (activeWorkMins / totalWorkMin) * 100);
+  // ① Intersection with regular working hours [startM, endM]
+  const overlapStart = Math.max(effectiveStart, startM);
+  const overlapEnd = Math.min(effectiveEnd, endM);
 
-    // Calc OT if punched out after default endM
-    let earnedOT = 0;
-    let otSecs = 0;
-    if (effectiveEnd > endM) {
-      const otMins = effectiveEnd - endM;
+  let activeWorkMins = 0;
+  if (overlapStart < overlapEnd) {
+    // Subtract lunch intersection with the overlap interval
+    const overlapLunchStart = Math.max(overlapStart, lunchS);
+    const overlapLunchEnd = Math.min(overlapEnd, lunchE);
+    const overlapLunchMins = Math.max(0, overlapLunchEnd - overlapLunchStart);
+    activeWorkMins = (overlapEnd - overlapStart) - overlapLunchMins;
+  }
+
+  // Base earnings (naturally capped at dailySal because regular active minutes cannot exceed totalWorkMin)
+  const earnedBase = activeWorkMins * payPerMin;
+  const progressPct = Math.min(100, (activeWorkMins / totalWorkMin) * 100);
+
+  // ③ Overtime calculation
+  // otMins = max(0, effectiveEnd - max(effectiveStart, endM))
+  const otStartMins = Math.max(effectiveStart, endM);
+  const otMins = Math.max(0, effectiveEnd - otStartMins);
+
+  // Real-time precise OT seconds
+  let otSecs = 0;
+  if (otMins > 0) {
+    if (punchOut) {
       otSecs = Math.floor(otMins * 60);
-      earnedOT = otMins * payPerMin * settings.overtimeRate;
+    } else {
+      // Calculate precise diff using unix timestamps to preserve seconds accuracy
+      const msInDay = now.getHours() * 3600000 + now.getMinutes() * 60000 + now.getSeconds() * 1000;
+      const dayStartMs = now.getTime() - msInDay;
+      const otStartMs = dayStartMs + otStartMins * 60 * 1000;
+      otSecs = Math.max(0, Math.floor((now.getTime() - otStartMs) / 1000));
     }
+  }
+  const earnedOT = (otSecs / 60) * payPerMin * settings.overtimeRate;
 
+  // Status labels and active toggles
+  if (punchOut) {
     return {
       statusLabel: "已下班",
       earnedBase,
@@ -172,70 +187,20 @@ export function computeCurrentEarnings(
     };
   }
 
-  // Waiting to start work or not punched in yet (only if they haven't punched in)
-  if (!punchIn && nowMins < effectiveStart) {
-    return {
-      statusLabel: "未开始",
-      earnedBase: 0,
-      earnedOT: 0,
-      totalEarned: 0,
-      progressPct: 0,
-      progressWidth: 0,
-      isWorking: false,
-      isOT: false,
-      otSecs: 0,
-      workingMinsElapsed: 0,
-    };
-  }
-
-  // Overtime - past endM and not punched out yet
-  if (nowMins >= endM) {
-    const elapsedSinceStart = nowMins - effectiveStart;
-    const lunchInElapsed = Math.max(0, Math.min(nowMins, lunchE) - Math.max(effectiveStart, lunchS));
-    const activeWorkMins = Math.max(0, elapsedSinceStart - lunchInElapsed);
-    const earnedBase = dailySal; // fully earned
-
-    const otStartTime = new Date(now);
-    otStartTime.setHours(Math.floor(endM / 60), Math.floor(endM % 60), 0);
-    const otSecs = Math.max(0, Math.floor((now.getTime() - otStartTime.getTime()) / 1000));
-    const otMins = otSecs / 60;
-    const earnedOT = otMins * payPerMin * settings.overtimeRate;
-
-    return {
-      statusLabel: "加班中",
-      earnedBase,
-      earnedOT,
-      totalEarned: earnedBase + earnedOT,
-      progressPct: 100, // Show OT/100%
-      progressWidth: 100,
-      isWorking: false,
-      isOT: true,
-      otSecs,
-      workingMinsElapsed: activeWorkMins,
-    };
-  }
-
-  // Normal work segment (nowMins is between effectiveStart and endM)
+  const isOT = nowMins >= endM;
   const isLunch = nowMins >= lunchS && nowMins < lunchE;
-  const statusLabel = isLunch ? "午休中" : "赚钱中";
-
-  const elapsedSinceStart = nowMins - effectiveStart;
-  const lunchInElapsed = Math.max(0, Math.min(nowMins, lunchE) - Math.max(effectiveStart, lunchS));
-  const activeWorkMins = Math.max(0, elapsedSinceStart - lunchInElapsed);
-
-  const earnedBase = Math.min(dailySal, activeWorkMins * payPerMin);
-  const progressPct = Math.min(100, (activeWorkMins / totalWorkMin) * 100);
+  const statusLabel = isOT ? "加班中" : (isLunch ? "午休中" : "赚钱中");
 
   return {
     statusLabel,
     earnedBase,
-    earnedOT: 0,
-    totalEarned: earnedBase,
+    earnedOT,
+    totalEarned: earnedBase + earnedOT,
     progressPct,
     progressWidth: progressPct,
-    isWorking: true,
-    isOT: false,
-    otSecs: 0,
+    isWorking: !isOT && !isLunch,
+    isOT,
+    otSecs,
     workingMinsElapsed: activeWorkMins,
   };
 }

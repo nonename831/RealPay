@@ -665,6 +665,7 @@ export default function App() {
   };
 
   const mProgress = getMonthProgressDetails();
+  const isWorkdayToday = (settings.workWeekdays || [1, 2, 3, 4, 5]).includes(now.getDay());
 
   const getStatusMsg = () => {
     const h = now.getHours();
@@ -687,9 +688,6 @@ export default function App() {
     if (isHoliday) {
       return "今天公假，好好休息！";
     }
-
-    const workWeekdays = settings.workWeekdays || [1, 2, 3, 4, 5];
-    const isWorkdayToday = workWeekdays.includes(now.getDay());
 
     if (punchOutTime && nowMins >= effectiveEnd) {
       return "下班了！今天辛苦啦 🎉";
@@ -756,9 +754,9 @@ export default function App() {
               </div>
               <div className="badge">
                 <span className={`dot ${slacking ? "working" :
-                  metrics.isWorking ? "working" :
-                    metrics.isOT ? "ot" :
-                      isHoliday ? "done" : "off"
+                    metrics.isWorking ? "working" :
+                      metrics.isOT ? "ot" :
+                        isHoliday ? "done" : "off"
                   }`} style={
                     slacking
                       ? { backgroundColor: "#a78bfa" }
@@ -786,6 +784,8 @@ export default function App() {
               onPunchOut={handlePunchOut}
               onClearPunch={handleClearPunch}
               onModifyPunch={handleModifyPunch}
+              isWorkdayToday={isWorkdayToday}
+              startTime={settings.startTime}
             />
 
             {/* Dynamic Earnings Hero Card - Restored perfectly to original design */}
@@ -806,8 +806,8 @@ export default function App() {
               <div className="hero-amount">
                 <span className="hero-rm">{settings.currency || "RM"}</span>
                 <span className={`hero-num ${slacking ? "slacking" :
-                  metrics.isOT ? "overtime" :
-                    isHoliday ? "holiday" : "live"
+                    metrics.isOT ? "overtime" :
+                      isHoliday ? "holiday" : "live"
                   } ${isPopping ? "pop" : ""}`}>
                   {metrics.totalEarned.toFixed(2)}
                 </span>
@@ -998,7 +998,6 @@ export default function App() {
           monthlyProgressPct={mProgress.progressPct}
           workDaysPassed={mProgress.workDaysPassed}
           totalWorkDays={settings.workDays}
-          currency={settings.currency}
           onClose={() => {
             setShowShareModal(false);
             window.scrollTo({ top: 0, behavior: "smooth" });

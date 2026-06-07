@@ -9,6 +9,8 @@ interface PunchControllerProps {
   onPunchOut: (time: Date) => void;
   onClearPunch: () => void;
   onModifyPunch: (inTimeStr: string | null, outTimeStr: string | null) => void;
+  isWorkdayToday?: boolean;
+  startTime?: string;
 }
 
 export default function PunchController({
@@ -18,12 +20,50 @@ export default function PunchController({
   onPunchOut,
   onClearPunch,
   onModifyPunch,
+  isWorkdayToday = true,
+  startTime = "09:00",
 }: PunchControllerProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
 
   const [editIn, setEditIn] = useState("");
   const [editOut, setEditOut] = useState("");
+
+  const [canPunchIn, setCanPunchIn] = useState(true);
+  const [punchRestrictionMsg, setPunchRestrictionMsg] = useState("");
+
+  useEffect(() => {
+    if (!isWorkdayToday || !startTime) {
+      setCanPunchIn(true);
+      setPunchRestrictionMsg("");
+      return;
+    }
+
+    const checkTime = () => {
+      const now = new Date();
+      const nowMins = now.getHours() * 60 + now.getMinutes();
+
+      const [startH, startM] = startTime.split(":").map(Number);
+      const startMins = startH * 60 + startM;
+
+      const earliestMins = startMins - 60; // 1 hour before
+
+      if (nowMins < earliestMins) {
+        setCanPunchIn(false);
+        const earliestH = (Math.floor(earliestMins / 60) + 24) % 24;
+        const earliestM = (earliestMins % 60 + 60) % 60;
+        const timeStr = `${String(earliestH).padStart(2, "0")}:${String(earliestM).padStart(2, "0")}`;
+        setPunchRestrictionMsg(`${timeStr} 开放`);
+      } else {
+        setCanPunchIn(true);
+        setPunchRestrictionMsg("");
+      }
+    };
+
+    checkTime();
+    const interval = setInterval(checkTime, 10000);
+    return () => clearInterval(interval);
+  }, [isWorkdayToday, startTime]);
 
   // Sync edits when properties change
   useEffect(() => {
@@ -84,13 +124,32 @@ export default function PunchController({
 
         {/* PUNCH IN BUTTON */}
         {!punchInTime ? (
-          <button
-            onClick={() => onPunchIn(new Date())}
-            className="w-full bg-[#141414] border border-neutral-800 hover:border-emerald-500/40 text-neutral-200 py-3.5 rounded-2xl font-bold flex items-center justify-center gap-1.5 transition active:scale-[0.98] cursor-pointer text-xs animate-fade-in"
-          >
-            <span>🌞</span>
-            <span>上班打卡</span>
-          </button>
+          !isWorkdayToday ? (
+            <button
+              disabled
+              className="w-full bg-[#141414]/40 border border-neutral-900 text-neutral-500 py-3.5 rounded-2xl font-bold flex items-center justify-center gap-1.5 opacity-50 cursor-not-allowed text-xs select-none"
+            >
+              <span>🔒</span>
+              <span>非工作日</span>
+            </button>
+          ) : !canPunchIn ? (
+            <button
+              disabled
+              title={`上班一小时前才开放打卡。最早可在 ${punchRestrictionMsg}`}
+              className="w-full bg-[#141414]/40 border border-amber-500/10 text-amber-500/70 py-2.5 rounded-2xl font-semibold flex flex-col items-center justify-center leading-tight opacity-75 cursor-not-allowed text-xs select-none"
+            >
+              <span className="text-[10px] text-amber-500/50 font-medium">未开放</span>
+              <span className="font-mono text-xs font-bold mt-0.5">{punchRestrictionMsg}</span>
+            </button>
+          ) : (
+            <button
+              onClick={() => onPunchIn(new Date())}
+              className="w-full bg-[#141414] border border-neutral-800 hover:border-emerald-500/40 text-neutral-200 py-3.5 rounded-2xl font-bold flex items-center justify-center gap-1.5 transition active:scale-[0.98] cursor-pointer text-xs animate-fade-in"
+            >
+              <span>🌞</span>
+              <span>上班打卡</span>
+            </button>
+          )
         ) : (
           <div className="w-full bg-[#141414]/55 border border-emerald-500/15 text-emerald-400 py-2.5 rounded-2xl text-xs font-semibold flex flex-col items-center justify-center leading-normal select-none">
             <span className="text-[10px] text-neutral-550 font-normal">已上班</span>
@@ -105,13 +164,23 @@ export default function PunchController({
             <span>下班打卡</span>
           </div>
         ) : !punchOutTime ? (
-          <button
-            onClick={() => onPunchOut(new Date())}
-            className="w-full bg-[#141414] border border-neutral-800 hover:border-amber-500/40 text-neutral-200 py-3.5 rounded-2xl font-bold flex items-center justify-center gap-1.5 transition active:scale-[0.98] cursor-pointer text-xs animate-fade-in"
-          >
-            <span>🏁</span>
-            <span>下班打卡</span>
-          </button>
+          !isWorkdayToday ? (
+            <button
+              disabled
+              className="w-full bg-[#141414]/40 border border-neutral-900 text-neutral-500 py-3.5 rounded-2xl font-bold flex items-center justify-center gap-1.5 opacity-50 cursor-not-allowed text-xs select-none"
+            >
+              <span>🔒</span>
+              <span>非工作日</span>
+            </button>
+          ) : (
+            <button
+              onClick={() => onPunchOut(new Date())}
+              className="w-full bg-[#141414] border border-neutral-800 hover:border-amber-500/40 text-neutral-200 py-3.5 rounded-2xl font-bold flex items-center justify-center gap-1.5 transition active:scale-[0.98] cursor-pointer text-xs animate-fade-in"
+            >
+              <span>🏁</span>
+              <span>下班打卡</span>
+            </button>
+          )
         ) : (
           <div className="w-full bg-[#141414]/55 border border-amber-500/15 text-amber-500 py-2.5 rounded-2xl text-xs font-semibold flex flex-col items-center justify-center leading-normal select-none">
             <span className="text-[10px] text-neutral-550 font-normal">已下班</span>

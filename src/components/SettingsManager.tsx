@@ -205,8 +205,9 @@ export default function SettingsManager({
                 readOnly
                 value={
                   settings.overtimeRate === 1.5 ? "1.5x (普通加班)"
-                    : settings.overtimeRate === 2.0 ? "2.0x (周末加班)"
-                      : "3.0x (公假加倍)"
+                    : settings.overtimeRate === 2.0 || settings.overtimeRate === 2 ? "2.0x (周末加班)"
+                      : settings.overtimeRate === 3.0 || settings.overtimeRate === 3 ? "3.0x (公假加倍)"
+                        : "0.0x (无加班费)"
                 }
                 style={{
                   padding: "11px 32px 11px 12px",
@@ -229,9 +230,10 @@ export default function SettingsManager({
                 className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
                 style={{ fontSize: "16px" }}
               >
+                <option value="0">0.0x (无加班费)</option>
                 <option value="1.5">1.5x (普通加班)</option>
-                <option value="2.0">2.0x (周末加班)</option>
-                <option value="3.0">3.0x (公假加倍)</option>
+                <option value="2">2.0x (周末加班)</option>
+                <option value="3">3.0x (公假加倍)</option>
               </select>
             </div>
           </div>
