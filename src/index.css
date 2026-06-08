@@ -60,7 +60,7 @@ body {
   font-family: var(--sans);
   overflow-x: hidden;
   min-height: 100vh;
-  padding-bottom: var(--tab-h);
+  padding-bottom: calc(var(--tab-h) + env(safe-area-inset-bottom) + 16px);
   touch-action: manipulation;
   scrollbar-width: none !important;
   -ms-overflow-style: none !important;
@@ -80,7 +80,8 @@ body::-webkit-scrollbar {
   left: 0;
   right: 0;
   z-index: 100;
-  height: var(--tab-h);
+  height: calc(var(--tab-h) + env(safe-area-inset-bottom));
+  padding-bottom: env(safe-area-inset-bottom);
   background: rgba(15, 15, 15, 0.92);
   backdrop-filter: blur(20px);
   border-top: 1px solid var(--border);
@@ -129,6 +130,16 @@ body::-webkit-scrollbar {
 }
 
 /* PAGES */
+.safe-padding-top {
+  padding-top: 18px;
+}
+
+@supports (padding-top: env(safe-area-inset-top)) {
+  .safe-padding-top {
+    padding-top: max(18px, calc(env(safe-area-inset-top) + 6px));
+  }
+}
+
 .page {
   animation: fadeUp 0.25s ease;
 }

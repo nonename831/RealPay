@@ -187,9 +187,10 @@ export function computeCurrentEarnings(
     };
   }
 
+  const isEarly = nowMins < startM;
   const isOT = nowMins >= endM;
   const isLunch = nowMins >= lunchS && nowMins < lunchE;
-  const statusLabel = isOT ? "加班中" : (isLunch ? "午休中" : "赚钱中");
+  const statusLabel = isEarly ? "等上班" : (isOT ? "加班中" : (isLunch ? "午休中" : "赚钱中"));
 
   return {
     statusLabel,
@@ -198,7 +199,7 @@ export function computeCurrentEarnings(
     totalEarned: earnedBase + earnedOT,
     progressPct,
     progressWidth: progressPct,
-    isWorking: !isOT && !isLunch,
+    isWorking: !isEarly && !isOT && !isLunch,
     isOT,
     otSecs,
     workingMinsElapsed: activeWorkMins,

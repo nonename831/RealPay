@@ -820,7 +820,7 @@ export default function App() {
     <div className="w-full max-w-[520px] mx-auto min-h-screen flex flex-col relative bg-[#0f0f0f] text-[#f0ede8] font-sans">
 
       {/* ── Main content pages ── */}
-      <div className="w-full px-5 pt-6 pb-2 z-10">
+      <div className="w-full px-5 pb-2 z-10 safe-padding-top">
 
         {/* ── Tab: HOME ── */}
         {activeTab === "home" && (
@@ -833,9 +833,9 @@ export default function App() {
               </div>
               <div className="badge">
                 <span className={`dot ${slacking ? "working" :
-                    metrics.isWorking ? "working" :
-                      metrics.isOT ? "ot" :
-                        isHoliday ? "done" : "off"
+                  metrics.isWorking ? "working" :
+                    metrics.isOT ? "ot" :
+                      isHoliday ? "done" : "off"
                   }`} style={
                     slacking
                       ? { backgroundColor: "#a78bfa" }
@@ -886,8 +886,8 @@ export default function App() {
               <div className="hero-amount">
                 <span className="hero-rm">{settings.currency || "RM"}</span>
                 <span className={`hero-num ${slacking ? "slacking" :
-                    metrics.isOT ? "overtime" :
-                      isHoliday ? "holiday" : "live"
+                  metrics.isOT ? "overtime" :
+                    isHoliday ? "holiday" : "live"
                   } ${isPopping ? "pop" : ""}`}>
                   {todayTotalEarned.toFixed(2)}
                 </span>
