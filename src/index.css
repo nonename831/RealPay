@@ -536,6 +536,12 @@ body::-webkit-scrollbar {
   cursor: pointer;
   transition: border-color 0.2s;
   min-height: 58px;
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .weather-card:hover {

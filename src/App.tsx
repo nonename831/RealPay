@@ -833,9 +833,9 @@ export default function App() {
               </div>
               <div className="badge">
                 <span className={`dot ${slacking ? "working" :
-                  metrics.isWorking ? "working" :
-                    metrics.isOT ? "ot" :
-                      isHoliday ? "done" : "off"
+                    metrics.isWorking ? "working" :
+                      metrics.isOT ? "ot" :
+                        isHoliday ? "done" : "off"
                   }`} style={
                     slacking
                       ? { backgroundColor: "#a78bfa" }
@@ -865,6 +865,7 @@ export default function App() {
               onModifyPunch={handleModifyPunch}
               isWorkdayToday={isWorkdayToday}
               startTime={settings.startTime}
+              endTime={settings.endTime}
             />
 
             {/* Dynamic Earnings Hero Card - Restored perfectly to original design */}
@@ -885,8 +886,8 @@ export default function App() {
               <div className="hero-amount">
                 <span className="hero-rm">{settings.currency || "RM"}</span>
                 <span className={`hero-num ${slacking ? "slacking" :
-                  metrics.isOT ? "overtime" :
-                    isHoliday ? "holiday" : "live"
+                    metrics.isOT ? "overtime" :
+                      isHoliday ? "holiday" : "live"
                   } ${isPopping ? "pop" : ""}`}>
                   {todayTotalEarned.toFixed(2)}
                 </span>

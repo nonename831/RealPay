@@ -11,6 +11,7 @@ interface PunchControllerProps {
   onModifyPunch: (inTimeStr: string | null, outTimeStr: string | null) => void;
   isWorkdayToday?: boolean;
   startTime?: string;
+  endTime?: string;
 }
 
 export default function PunchController({
@@ -22,6 +23,7 @@ export default function PunchController({
   onModifyPunch,
   isWorkdayToday = true,
   startTime = "09:00",
+  endTime = "18:00",
 }: PunchControllerProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
@@ -33,7 +35,7 @@ export default function PunchController({
   const [punchRestrictionMsg, setPunchRestrictionMsg] = useState("");
 
   useEffect(() => {
-    if (!isWorkdayToday || !startTime) {
+    if (!isWorkdayToday || !startTime || !endTime) {
       setCanPunchIn(true);
       setPunchRestrictionMsg("");
       return;
@@ -46,14 +48,25 @@ export default function PunchController({
       const [startH, startM] = startTime.split(":").map(Number);
       const startMins = startH * 60 + startM;
 
-      const earliestMins = startMins - 60; // 1 hour before
+      const [endH, endM] = endTime.split(":").map(Number);
+      const endMins = endH * 60 + endM;
 
-      if (nowMins < earliestMins) {
+      const earliestMins = (startMins - 60 + 1440) % 1440; // 1 hour before
+
+      let isWithinWindow = false;
+      if (earliestMins <= endMins) {
+        isWithinWindow = nowMins >= earliestMins && nowMins <= endMins;
+      } else {
+        isWithinWindow = nowMins >= earliestMins || nowMins <= endMins;
+      }
+
+      if (!isWithinWindow) {
         setCanPunchIn(false);
-        const earliestH = (Math.floor(earliestMins / 60) + 24) % 24;
-        const earliestM = (earliestMins % 60 + 60) % 60;
+        const earliestH = Math.floor(earliestMins / 60);
+        const earliestM = earliestMins % 60;
         const timeStr = `${String(earliestH).padStart(2, "0")}:${String(earliestM).padStart(2, "0")}`;
-        setPunchRestrictionMsg(`${timeStr} 开放`);
+
+        setPunchRestrictionMsg(`${timeStr}开放`);
       } else {
         setCanPunchIn(true);
         setPunchRestrictionMsg("");
@@ -63,7 +76,7 @@ export default function PunchController({
     checkTime();
     const interval = setInterval(checkTime, 10000);
     return () => clearInterval(interval);
-  }, [isWorkdayToday, startTime]);
+  }, [isWorkdayToday, startTime, endTime]);
 
   // Sync edits when properties change
   useEffect(() => {
@@ -138,8 +151,8 @@ export default function PunchController({
               title={`上班一小时前才开放打卡。最早可在 ${punchRestrictionMsg}`}
               className="w-full bg-[#141414]/40 border border-amber-500/10 text-amber-500/70 py-2.5 rounded-2xl font-semibold flex flex-col items-center justify-center leading-tight opacity-75 cursor-not-allowed text-xs select-none"
             >
-              <span className="text-[10px] text-amber-500/50 font-medium">未开放</span>
-              <span className="font-mono text-xs font-bold mt-0.5">{punchRestrictionMsg}</span>
+              <span className="text-[9px] text-amber-500/40 font-medium">未开放</span>
+              <span className="text-[10px] font-bold mt-0.5">{punchRestrictionMsg}</span>
             </button>
           ) : (
             <button
