@@ -211,7 +211,7 @@ export default function WeatherWidget({ settings }: WeatherWidgetProps) {
     // 4. Afternoon (After Lunch, Before the Final Work Hour)
     if (nowMins >= lunchEndMins && nowMins < rainWarningMins) {
       if (isRaining) {
-        return { text: "🌧 暴雨，安心在室内摸鱼", type: "nah" };
+        return { text: "🌧 下雨，安心在室内摸鱼", type: "nah" };
       }
       if (isVeryHot) {
         return { text: "🥤 天热，多喝水适度休息", type: "go" };
