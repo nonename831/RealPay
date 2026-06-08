@@ -71,7 +71,35 @@ const formatAmPm = (date: Date | null, defaultStr: string): string => {
 };
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<"home" | "slack" | "settings">("home");
+  const [activeTab, setActiveTab] = useState<"home" | "slack" | "settings">(() => {
+    if (typeof window !== "undefined") {
+      const hash = window.location.hash.replace("#", "");
+      if (hash === "slack" || hash === "settings") {
+        return hash;
+      }
+    }
+    return "home";
+  });
+
+  // Keep state in sync with URL Hash back/forward navigation
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      if (!window.location.hash) {
+        window.history.replaceState(null, "", "#home");
+      }
+
+      const handleHashChange = () => {
+        const hash = window.location.hash.replace("#", "");
+        const tab = (hash === "slack" || hash === "settings") ? hash : "home";
+        setActiveTab(tab);
+      };
+
+      window.addEventListener("hashchange", handleHashChange);
+      return () => {
+        window.removeEventListener("hashchange", handleHashChange);
+      };
+    }
+  }, []);
 
   // Core App States
   const [settings, setSettings] = useState<AppSettings>(() => {
@@ -805,9 +833,9 @@ export default function App() {
               </div>
               <div className="badge">
                 <span className={`dot ${slacking ? "working" :
-                    metrics.isWorking ? "working" :
-                      metrics.isOT ? "ot" :
-                        isHoliday ? "done" : "off"
+                  metrics.isWorking ? "working" :
+                    metrics.isOT ? "ot" :
+                      isHoliday ? "done" : "off"
                   }`} style={
                     slacking
                       ? { backgroundColor: "#a78bfa" }
@@ -857,8 +885,8 @@ export default function App() {
               <div className="hero-amount">
                 <span className="hero-rm">{settings.currency || "RM"}</span>
                 <span className={`hero-num ${slacking ? "slacking" :
-                    metrics.isOT ? "overtime" :
-                      isHoliday ? "holiday" : "live"
+                  metrics.isOT ? "overtime" :
+                    isHoliday ? "holiday" : "live"
                   } ${isPopping ? "pop" : ""}`}>
                   {todayTotalEarned.toFixed(2)}
                 </span>
@@ -1087,6 +1115,7 @@ export default function App() {
             className={`tab-btn ${activeTab === "home" ? "active" : ""}`}
             onClick={() => {
               setActiveTab("home");
+              window.location.hash = "home";
               setShowShareModal(false);
               window.scrollTo({ top: 0, behavior: "smooth" });
             }}
@@ -1097,6 +1126,7 @@ export default function App() {
             className={`tab-btn ${activeTab === "slack" ? "active" : ""}`}
             onClick={() => {
               setActiveTab("slack");
+              window.location.hash = "slack";
               setShowShareModal(false);
               window.scrollTo({ top: 0, behavior: "smooth" });
             }}
@@ -1107,6 +1137,7 @@ export default function App() {
             className={`tab-btn ${activeTab === "settings" ? "active" : ""}`}
             onClick={() => {
               setActiveTab("settings");
+              window.location.hash = "settings";
               setShowShareModal(false);
               window.scrollTo({ top: 0, behavior: "smooth" });
             }}
