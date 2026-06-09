@@ -579,10 +579,10 @@ export default function App() {
     storage.set(SAVINGS_KEY, updated);
   };
 
-  const handleAddCommission = (label: string, amount: number, salesAmount?: number, rate?: number) => {
+  const handleAddCommission = (label: string, amount: number, salesAmount?: number, rate?: number, customDate?: string) => {
     const newComm: CommissionEntry = {
       id: "comm-" + Math.random().toString(36).substring(2, 9),
-      date: getTodayStr(now),
+      date: customDate || getTodayStr(now),
       label,
       amount,
       salesAmount,
@@ -600,9 +600,9 @@ export default function App() {
     storage.set(COMMISSION_KEY, updated);
   };
 
-  const handleUpdateCommission = (id: string, label: string, amount: number, salesAmount?: number, rate?: number) => {
+  const handleUpdateCommission = (id: string, label: string, amount: number, salesAmount?: number, rate?: number, customDate?: string) => {
     const updated = commissions.map((c) =>
-      c.id === id ? { ...c, label, amount, salesAmount, rate } : c
+      c.id === id ? { ...c, label, amount, salesAmount, rate, date: customDate || c.date } : c
     );
     setCommissions(updated);
     storage.set(COMMISSION_KEY, updated);
@@ -666,16 +666,25 @@ export default function App() {
   // Month progress passed calculation
   const getMonthProgressDetails = () => {
     const currentMonthStr = getMonthStr(now);
-    const workDaysPassed = allPunches.filter(
+    const todayStr = getTodayStr(now);
+
+    const monthPunches = allPunches.filter(
       (p) => p.date.startsWith(currentMonthStr) && p.inTime
-    ).length;
+    );
+
+    const hasPunchToday = monthPunches.some((p) => p.date === todayStr);
+    const pastDaysCount = hasPunchToday ? monthPunches.length - 1 : monthPunches.length;
+
+    const workDaysPassed = monthPunches.length;
     const progressPct = Math.min(100, (workDaysPassed / settings.workDays) * 100);
 
     const monthlyCommissions = commissions.filter((c) => c.date.startsWith(currentMonthStr));
     const monthlyCommissionTotal = settings.enableCommission
       ? monthlyCommissions.reduce((sum, c) => sum + c.amount, 0)
       : 0;
-    const estimatedBaseEarned = workDaysPassed * dailySal + monthlyCommissionTotal;
+
+    const todayLiveBaseEarned = hasPunchToday ? metrics.totalEarned : 0;
+    const estimatedBaseEarned = (pastDaysCount * dailySal) + todayLiveBaseEarned + monthlyCommissionTotal;
 
     return {
       workDaysPassed,
@@ -833,15 +842,17 @@ export default function App() {
               </div>
               <div className="badge">
                 <span className={`dot ${slacking ? "working" :
-                  metrics.isWorking ? "working" :
-                    metrics.isOT ? "ot" :
-                      isHoliday ? "done" : "off"
+                    metrics.isWorking ? "working" :
+                      metrics.isOT ? "ot" :
+                        isHoliday ? "done" : "off"
                   }`} style={
                     slacking
                       ? { backgroundColor: "#a78bfa" }
                       : (!slacking && metrics.statusLabel === "午休中")
                         ? { backgroundColor: "#fbbf24" }
-                        : undefined
+                        : (!slacking && metrics.statusLabel === "等上班")
+                          ? { backgroundColor: "#3b82f6" }
+                          : undefined
                   } />
                 <span>{slacking ? "摸鱼中" : metrics.statusLabel}</span>
               </div>
@@ -886,8 +897,8 @@ export default function App() {
               <div className="hero-amount">
                 <span className="hero-rm">{settings.currency || "RM"}</span>
                 <span className={`hero-num ${slacking ? "slacking" :
-                  metrics.isOT ? "overtime" :
-                    isHoliday ? "holiday" : "live"
+                    metrics.isOT ? "overtime" :
+                      isHoliday ? "holiday" : "live"
                   } ${isPopping ? "pop" : ""}`}>
                   {todayTotalEarned.toFixed(2)}
                 </span>

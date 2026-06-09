@@ -1,14 +1,14 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { CommissionEntry, AppSettings } from "../types";
-import { Plus, Trash2, Percent, DollarSign, ListPlus, Edit2, Check } from "lucide-react";
+import { Plus, Trash2, Percent, DollarSign, ListPlus, Edit2, Check, Calendar } from "lucide-react";
 
 interface CommissionManagerProps {
     settings: AppSettings;
     commissions: CommissionEntry[];
     todayStr: string;
-    onAddCommission: (label: string, amount: number, salesAmount?: number, rate?: number) => void;
-    onUpdateCommission: (id: string, label: string, amount: number, salesAmount?: number, rate?: number) => void;
+    onAddCommission: (label: string, amount: number, salesAmount?: number, rate?: number, customDate?: string) => void;
+    onUpdateCommission: (id: string, label: string, amount: number, salesAmount?: number, rate?: number, customDate?: string) => void;
     onDeleteCommission: (id: string) => void;
 }
 
@@ -23,18 +23,27 @@ export default function CommissionManager({
     const [isOpen, setIsOpen] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [calcMode, setCalcMode] = useState<"rate" | "fixed">("rate");
+    const [viewMode, setViewMode] = useState<"today" | "month">("today");
 
     // Form states
     const [label, setLabel] = useState("");
     const [salesAmount, setSalesAmount] = useState("");
     const [rate, setRate] = useState("");
     const [fixedAmount, setFixedAmount] = useState("");
+    const [commissionDate, setCommissionDate] = useState(todayStr);
 
     const currency = settings.currency || "RM";
 
-    // Filter commissions
+    // Filter commissions today and month-wide
+    const currentMonthStr = todayStr.substring(0, 7);
     const todayCommissions = commissions.filter((c) => c.date === todayStr);
     const todayTotal = todayCommissions.reduce((sum, c) => sum + c.amount, 0);
+
+    const monthCommissions = commissions.filter((c) => c.date.startsWith(currentMonthStr));
+    const monthTotal = monthCommissions.reduce((sum, c) => sum + c.amount, 0);
+
+    const activeCommissions = viewMode === "today" ? todayCommissions : monthCommissions;
+    const activeTotal = viewMode === "today" ? todayTotal : monthTotal;
 
     // Auto-calculate rate commission
     const calculatedCommission = React.useMemo(() => {
@@ -51,6 +60,7 @@ export default function CommissionManager({
     const handleStartEdit = (entry: CommissionEntry) => {
         setEditingId(entry.id);
         setLabel(entry.label);
+        setCommissionDate(entry.date);
         if (entry.salesAmount !== undefined && entry.rate !== undefined) {
             setCalcMode("rate");
             setSalesAmount(String(entry.salesAmount));
@@ -73,6 +83,7 @@ export default function CommissionManager({
             setSalesAmount("");
             setRate("");
             setFixedAmount("");
+            setCommissionDate(todayStr);
         } else {
             setIsOpen(true);
         }
@@ -102,9 +113,9 @@ export default function CommissionManager({
         if (finalAmount <= 0) return;
 
         if (editingId) {
-            onUpdateCommission(editingId, label, finalAmount, sAmt, rPct);
+            onUpdateCommission(editingId, label, finalAmount, sAmt, rPct, commissionDate);
         } else {
-            onAddCommission(label, finalAmount, sAmt, rPct);
+            onAddCommission(label, finalAmount, sAmt, rPct, commissionDate);
         }
 
         // Reset fields
@@ -112,6 +123,7 @@ export default function CommissionManager({
         setSalesAmount("");
         setRate("");
         setFixedAmount("");
+        setCommissionDate(todayStr);
         setEditingId(null);
         setIsOpen(false);
     };
@@ -131,8 +143,8 @@ export default function CommissionManager({
                 <button
                     onClick={handleToggleOpen}
                     className={`px-2.5 py-1.5 rounded-lg border active:scale-95 transition text-[11px] font-bold flex items-center gap-1 cursor-pointer ${editingId
-                            ? "bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border-amber-500/30"
-                            : "bg-[#1a1a1a] hover:bg-neutral-800 text-neutral-300 border-neutral-800 hover:text-white"
+                        ? "bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border-amber-500/30"
+                        : "bg-[#1a1a1a] hover:bg-neutral-800 text-neutral-300 border-neutral-800 hover:text-white"
                         }`}
                 >
                     {editingId ? <Edit2 size={12} /> : <Plus size={12} />}
@@ -140,12 +152,38 @@ export default function CommissionManager({
                 </button>
             </div>
 
-            {/* Primary summary row */}
-            <div className="flex items-center justify-between bg-neutral-900/60 border border-neutral-800/50 rounded-xl px-3.5 py-2.5 mb-3.5">
-                <span className="text-[10px] text-neutral-450 font-medium">今日提成总计</span>
-                <span className="font-mono text-sm font-bold text-indigo-400 animate-pulse">
-                    {currency} {todayTotal.toFixed(2)}
-                </span>
+            {/* Primary summary row with toggle tab */}
+            <div className="flex flex-col gap-2.5 bg-neutral-900/60 border border-neutral-800/50 rounded-xl p-3 mb-3.5">
+                <div className="flex items-center justify-between px-0.5">
+                    <span className="text-[10px] text-neutral-450 font-medium">
+                        {viewMode === "today" ? "今日提成估算所得" : "本月提成总和估算"}
+                    </span>
+                    <span className="font-mono text-xs font-bold text-indigo-400">
+                        {currency} {activeTotal.toFixed(2)}
+                    </span>
+                </div>
+                <div className="grid grid-cols-2 gap-1 bg-[#1a1a1a] rounded-lg p-0.5 border border-neutral-800/30">
+                    <button
+                        type="button"
+                        onClick={() => setViewMode("today")}
+                        className={`py-1 text-[9px] font-bold rounded-md cursor-pointer transition ${viewMode === "today"
+                            ? "bg-neutral-800 text-neutral-100"
+                            : "text-neutral-550 hover:text-neutral-350"
+                            }`}
+                    >
+                        今日明细 ({todayCommissions.length})
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setViewMode("month")}
+                        className={`py-1 text-[9px] font-bold rounded-md cursor-pointer transition ${viewMode === "month"
+                            ? "bg-neutral-800 text-neutral-100"
+                            : "text-neutral-550 hover:text-neutral-350"
+                            }`}
+                    >
+                        本月明细 ({monthCommissions.length})
+                    </button>
+                </div>
             </div>
 
             {/* Expandable logging form */}
@@ -183,14 +221,28 @@ export default function CommissionManager({
                             />
                         </div>
 
+                        {/* Date field */}
+                        <div>
+                            <label className="block text-[10px] text-neutral-500 font-semibold mb-1">
+                                提成日期 (前几天的也可以记录)
+                            </label>
+                            <input
+                                type="date"
+                                required
+                                value={commissionDate}
+                                onChange={(e) => setCommissionDate(e.target.value)}
+                                className="w-full bg-[#1c1c1c] border border-neutral-850 focus:border-indigo-500/30 rounded-xl px-3 py-2 text-xs text-neutral-200 font-mono outline-none transition"
+                            />
+                        </div>
+
                         {/* Toggle calculation types */}
-                        <div className="grid grid-cols-2 gap-2 text-center">
+                        <div className="grid grid-cols-2 gap-2 text-center border-t border-neutral-800/20 pt-2">
                             <button
                                 type="button"
                                 onClick={() => setCalcMode("rate")}
                                 className={`py-2 rounded-xl text-[10px] font-bold border flex items-center justify-center gap-1 cursor-pointer transition ${calcMode === "rate"
-                                        ? "bg-indigo-500/10 border-indigo-500/40 text-indigo-400"
-                                        : "bg-[#161616] border-neutral-850 hover:bg-[#1a1a1a] text-neutral-400"
+                                    ? "bg-indigo-500/10 border-indigo-500/40 text-indigo-400"
+                                    : "bg-[#161616] border-neutral-850 hover:bg-[#1a1a1a] text-neutral-400"
                                     }`}
                             >
                                 <Percent size={11} />
@@ -200,8 +252,8 @@ export default function CommissionManager({
                                 type="button"
                                 onClick={() => setCalcMode("fixed")}
                                 className={`py-2 rounded-xl text-[10px] font-bold border flex items-center justify-center gap-1 cursor-pointer transition ${calcMode === "fixed"
-                                        ? "bg-indigo-500/10 border-indigo-500/40 text-indigo-400"
-                                        : "bg-[#161616] border-neutral-850 hover:bg-[#1a1a1a] text-neutral-400"
+                                    ? "bg-indigo-500/10 border-indigo-500/40 text-indigo-400"
+                                    : "bg-[#161616] border-neutral-850 hover:bg-[#1a1a1a] text-neutral-400"
                                     }`}
                             >
                                 <DollarSign size={11} />
@@ -293,26 +345,31 @@ export default function CommissionManager({
                 )}
             </AnimatePresence>
 
-            {/* Deals list of Today */}
+            {/* Deals list of selected mode */}
             <div className="space-y-2 max-h-[160px] overflow-y-auto pr-1">
-                {todayCommissions.length === 0 ? (
+                {activeCommissions.length === 0 ? (
                     <div className="text-center py-4 text-[10px] text-neutral-500">
-                        今天还没记录过提成呢。快去成交你的第一笔订单吧！🚀
+                        {viewMode === "today"
+                            ? "今天还没记录过提成呢。快去成交你的第一笔订单吧！🚀"
+                            : "本月还没有提成记录呢。积累每一天，创造更丰厚的收益吧！✨"}
                     </div>
                 ) : (
-                    todayCommissions.map((c) => (
+                    activeCommissions.map((c) => (
                         <div
                             key={c.id}
                             className={`flex items-center justify-between border rounded-xl px-3 py-2 transition group ${editingId === c.id
-                                    ? "bg-amber-500/5 border-amber-500/30"
-                                    : "bg-neutral-900/40 hover:bg-neutral-900/60 border-neutral-850/40"
+                                ? "bg-amber-500/5 border-amber-500/30"
+                                : "bg-neutral-900/40 hover:bg-neutral-900/60 border-neutral-850/40"
                                 }`}
                         >
                             <div className="flex-1 min-w-0 pr-2">
                                 <div className="text-[11px] font-bold text-neutral-200 truncate" title={c.label}>
                                     {c.label}
                                 </div>
-                                <div className="text-[9px] text-neutral-500 flex items-center gap-1 mt-0.5 font-mono">
+                                <div className="text-[9px] text-neutral-500 flex items-center gap-1.5 mt-0.5 font-mono flex-wrap">
+                                    <span className="text-neutral-400 font-bold bg-[#1d1d1d] hover:bg-[#2c2c2c] transition duration-200 rounded px-1 text-[8.5px] border border-neutral-800">
+                                        📅 {c.date}
+                                    </span>
                                     {c.salesAmount && c.rate ? (
                                         <span>
                                             额 {currency} {c.salesAmount.toFixed(0)} @ {c.rate}% 抽成
