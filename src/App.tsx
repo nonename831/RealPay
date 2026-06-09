@@ -74,8 +74,9 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<"home" | "slack" | "settings">(() => {
     if (typeof window !== "undefined") {
       const hash = window.location.hash.replace("#", "");
-      if (hash === "slack" || hash === "settings") {
-        return hash;
+      const baseHash = hash.split("/")[0];
+      if (baseHash === "slack" || baseHash === "settings") {
+        return baseHash as "home" | "slack" | "settings";
       }
     }
     return "home";
@@ -90,8 +91,10 @@ export default function App() {
 
       const handleHashChange = () => {
         const hash = window.location.hash.replace("#", "");
-        const tab = (hash === "slack" || hash === "settings") ? hash : "home";
-        setActiveTab(tab);
+        const baseHash = hash.split("/")[0];
+        const tab = (baseHash === "slack" || baseHash === "settings") ? baseHash : "home";
+        setActiveTab(tab as "home" | "slack" | "settings");
+        setShowShareModal(hash.includes("share"));
       };
 
       window.addEventListener("hashchange", handleHashChange);
@@ -160,7 +163,12 @@ export default function App() {
   const [punchOutTime, setPunchOutTime] = useState<Date | null>(null);
 
   // Web Share or Share Dialog trigger
-  const [showShareModal, setShowShareModal] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(() => {
+    if (typeof window !== "undefined") {
+      return window.location.hash.includes("share");
+    }
+    return false;
+  });
 
   const [isPopping, setIsPopping] = useState(false);
 
@@ -841,10 +849,11 @@ export default function App() {
                 REAL<span>PAY</span>
               </div>
               <div className="badge">
-                <span className={`dot ${slacking ? "working" :
-                    metrics.isWorking ? "working" :
-                      metrics.isOT ? "ot" :
-                        isHoliday ? "done" : "off"
+                <span className={`dot ${(!slacking && (metrics.statusLabel === "午休中" || metrics.statusLabel === "等上班")) ? "breathing" :
+                    slacking ? "working" :
+                      metrics.isWorking ? "working" :
+                        metrics.isOT ? "ot" :
+                          isHoliday ? "done" : "off"
                   }`} style={
                     slacking
                       ? { backgroundColor: "#a78bfa" }
@@ -1044,7 +1053,9 @@ export default function App() {
             {/* Quick status timeline and share triggers */}
             <div className="share-row">
               <button
-                onClick={() => setShowShareModal(true)}
+                onClick={() => {
+                  window.location.hash = activeTab + "/share";
+                }}
                 className="share-btn"
               >
                 <span>📊 生成分账战报</span>
@@ -1109,7 +1120,7 @@ export default function App() {
           workDaysPassed={mProgress.workDaysPassed}
           totalWorkDays={settings.workDays}
           onClose={() => {
-            setShowShareModal(false);
+            window.location.hash = activeTab;
             window.scrollTo({ top: 0, behavior: "smooth" });
           }}
         />

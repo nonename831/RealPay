@@ -202,6 +202,10 @@ body::-webkit-scrollbar {
   animation: blink 1.2s ease-in-out infinite;
 }
 
+.dot.breathing {
+  animation: breathing 2s ease-in-out infinite;
+}
+
 .dot.off {
   background: var(--muted);
 }
@@ -225,6 +229,20 @@ body::-webkit-scrollbar {
 
   50% {
     opacity: 0.3;
+  }
+}
+
+@keyframes breathing {
+
+  0%,
+  100% {
+    opacity: 0.4;
+    transform: scale(0.9);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1.18);
   }
 }
 

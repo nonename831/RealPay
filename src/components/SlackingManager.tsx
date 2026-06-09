@@ -103,7 +103,7 @@ export default function SlackingManager({
   // Effective start/end (considering manual punch)
   const hasPunchedIn = !!punchInTime;
   const effStart = punchInTime
-    ? punchInTime.getHours() * 60 + punchInTime.getMinutes() + punchInTime.getSeconds() / 60
+    ? Math.max(punchInTime.getHours() * 60 + punchInTime.getMinutes() + punchInTime.getSeconds() / 60, startM)
     : startM;
 
   const effEnd = punchOutTime
