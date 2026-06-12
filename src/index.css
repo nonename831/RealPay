@@ -206,6 +206,48 @@ body::-webkit-scrollbar {
   animation: breathing 2s ease-in-out infinite;
 }
 
+.dot.lunch-break {
+  background: #fbbf24;
+  animation: breathing-amber 2.2s ease-in-out infinite;
+}
+
+.dot.wait-work {
+  background: #3b82f6;
+  animation: breathing-blue 2.2s ease-in-out infinite;
+}
+
+@keyframes breathing-amber {
+
+  0%,
+  100% {
+    opacity: 0.6;
+    transform: scale(0.9);
+    box-shadow: 0 0 4px rgba(251, 191, 36, 0.4);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1.25);
+    box-shadow: 0 0 12px rgba(251, 191, 36, 0.9);
+  }
+}
+
+@keyframes breathing-blue {
+
+  0%,
+  100% {
+    opacity: 0.6;
+    transform: scale(0.9);
+    box-shadow: 0 0 4px rgba(59, 130, 246, 0.4);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1.25);
+    box-shadow: 0 0 12px rgba(59, 130, 246, 0.9);
+  }
+}
+
 .dot.off {
   background: var(--muted);
 }

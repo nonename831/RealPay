@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { AppSettings, PunchRecord } from "../types";
-import { toMins } from "../utils/calculations";
 
 interface AttendanceCalendarProps {
   settings: AppSettings;
@@ -181,7 +180,7 @@ export default function AttendanceCalendar({
               {weekdayLabels.map((lbl, idx) => (
                 <div
                   key={idx}
-                  className={`text-[10px] font-mono leading-none py-1 text-neutral-550 ${lbl === "六" || lbl === "日" ? "text-amber-500/60" : ""
+                  className={`text-[10px] font-mono leading-none py-1 text-neutral-500 ${lbl === "六" || lbl === "日" ? "text-amber-500/60" : ""
                     }`}
                 >
                   {lbl}
@@ -312,14 +311,16 @@ export default function AttendanceCalendar({
                 {/* Attendance quick actions */}
                 <div className="grid grid-cols-2 gap-2">
                   <button
+                    type="button"
                     onClick={handleQuickWorked}
-                    className="bg-emerald-500/12 border border-emerald-500/25 hover:bg-emerald-500/20 text-emerald-400 text-[10px] font-bold py-2 rounded-lg transition active:scale-[0.98]"
+                    className="bg-emerald-500/12 border border-emerald-500/25 hover:bg-emerald-500/20 text-emerald-400 text-[10px] font-bold py-2 rounded-lg transition active:scale-[0.98] cursor-pointer"
                   >
                     一键快速补全打卡
                   </button>
                   <button
+                    type="button"
                     onClick={handleMarkAbsent}
-                    className="bg-neutral-900 border border-red-500/20 hover:bg-red-500/10 text-red-400 text-[10px] font-bold py-2 rounded-lg transition active:scale-[0.98]"
+                    className="bg-neutral-900 border border-red-500/20 hover:bg-red-500/10 text-red-400 text-[10px] font-bold py-2 rounded-lg transition active:scale-[0.98] cursor-pointer"
                   >
                     标记请假/未出勤
                   </button>
@@ -393,7 +394,7 @@ export default function AttendanceCalendar({
                   <div className="flex justify-end pt-1">
                     <button
                       onClick={handleCustomSave}
-                      className="bg-green-400 text-black font-semibold text-[10px] px-3.5 py-1.5 rounded-lg hover:bg-opacity-95 transition"
+                      className="bg-green-400 text-black font-semibold text-[10px] px-3.5 py-1.5 rounded-lg hover:bg-opacity-95 transition cursor-pointer"
                     >
                       保存自定义考勤 ✓
                     </button>

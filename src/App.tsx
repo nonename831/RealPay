@@ -172,6 +172,32 @@ export default function App() {
 
   const [isPopping, setIsPopping] = useState(false);
 
+  // Push state when Share Modal is opened to capture the hardware back button
+  useEffect(() => {
+    if (showShareModal) {
+      if (typeof window !== "undefined" && window.history.state?.modal !== "share") {
+        window.history.pushState({ modal: "share" }, "");
+      }
+    }
+  }, [showShareModal]);
+
+  // Handle hardware/browser back button popstate
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const handlePopState = (event: PopStateEvent) => {
+        if (showShareModal) {
+          setShowShareModal(false);
+          window.location.hash = activeTab;
+        }
+      };
+
+      window.addEventListener("popstate", handlePopState);
+      return () => {
+        window.removeEventListener("popstate", handlePopState);
+      };
+    }
+  }, [showShareModal, activeTab]);
+
   // Formatted date string helpers
   const getTodayStr = (d = new Date()) => {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -833,6 +859,15 @@ export default function App() {
     return `距下班还有 ${remStr}`;
   };
 
+  const handleCloseShareModal = () => {
+    setShowShareModal(false);
+    window.location.hash = activeTab;
+    if (typeof window !== "undefined" && window.history.state?.modal === "share") {
+      window.history.back();
+    }
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   return (
     <div className="w-full max-w-[520px] mx-auto min-h-screen flex flex-col relative bg-[#0f0f0f] text-[#f0ede8] font-sans">
 
@@ -849,19 +884,16 @@ export default function App() {
                 REAL<span>PAY</span>
               </div>
               <div className="badge">
-                <span className={`dot ${(!slacking && (metrics.statusLabel === "午休中" || metrics.statusLabel === "等上班")) ? "breathing" :
-                    slacking ? "working" :
-                      metrics.isWorking ? "working" :
-                        metrics.isOT ? "ot" :
-                          isHoliday ? "done" : "off"
+                <span className={`dot ${(!slacking && metrics.statusLabel === "午休中") ? "lunch-break" :
+                    (!slacking && metrics.statusLabel === "等上班") ? "wait-work" :
+                      slacking ? "working" :
+                        metrics.isWorking ? "working" :
+                          metrics.isOT ? "ot" :
+                            isHoliday ? "done" : "off"
                   }`} style={
                     slacking
                       ? { backgroundColor: "#a78bfa" }
-                      : (!slacking && metrics.statusLabel === "午休中")
-                        ? { backgroundColor: "#fbbf24" }
-                        : (!slacking && metrics.statusLabel === "等上班")
-                          ? { backgroundColor: "#3b82f6" }
-                          : undefined
+                      : undefined
                   } />
                 <span>{slacking ? "摸鱼中" : metrics.statusLabel}</span>
               </div>
@@ -1119,10 +1151,14 @@ export default function App() {
           monthlyProgressPct={mProgress.progressPct}
           workDaysPassed={mProgress.workDaysPassed}
           totalWorkDays={settings.workDays}
-          onClose={() => {
-            window.location.hash = activeTab;
-            window.scrollTo({ top: 0, behavior: "smooth" });
-          }}
+          onClose={handleCloseShareModal}
+          currency={settings.currency || "RM"}
+          slacking={slacking}
+          slackStart={slackStart}
+          slackSessions={slackSessions}
+          slackGoalMins={slackGoalMins}
+          payPerMin={payPerMin}
+          punchInTime={punchInTime}
         />
       )}
 
