@@ -285,6 +285,58 @@ export default function ShareModal({
     };
   }, []);
 
+  // Request gyroscope/accelerometer permission for device orientation on iOS
+  const requestOrientationPermission = async () => {
+    const DeviceOrientation = (window as any).DeviceOrientationEvent;
+    if (DeviceOrientation && typeof DeviceOrientation.requestPermission === "function") {
+      try {
+        const permissionState = await DeviceOrientation.requestPermission();
+        if (permissionState === "granted") {
+          console.log("DeviceOrientation permission granted.");
+        }
+      } catch (err) {
+        console.warn("DeviceOrientation permission failed or declined:", err);
+      }
+    }
+  };
+
+  // Listen to device orientation for physical tilting/swaying card behavior
+  useEffect(() => {
+    let lastUpdate = 0;
+    const handleOrientation = (event: DeviceOrientationEvent) => {
+      const now = Date.now();
+      if (now - lastUpdate < 30) return; // Throttle to 30ms to maintain performance
+      lastUpdate = now;
+
+      if (event.gamma !== null && event.beta !== null) {
+        // Safe skip on devices returning static zeros
+        if (event.gamma === 0 && event.beta === 0) return;
+
+        const maxTilt = 18;
+        // Map gamma [-35, 35] (left/right tilting) to rotateY [-maxTilt, maxTilt]
+        const targetRotateY = (Math.min(Math.max(event.gamma, -35), 35) / 35) * maxTilt;
+
+        // Map beta (centering around natural 60 deg angle) to rotateX [-maxTilt, maxTilt]
+        const centeredBeta = event.beta - 60;
+        const targetRotateX = -(Math.min(Math.max(centeredBeta, -30), 30) / 30) * maxTilt;
+
+        setRotateY(targetRotateY);
+        setRotateX(targetRotateX);
+
+        // Dynamically shift shiny spot according to actual phone tilt for full physical immersion
+        const shineX = 50 + (targetRotateY / maxTilt) * 50;
+        const shineY = 50 - (targetRotateX / maxTilt) * 50;
+        setShinePos({ x: shineX, y: shineY });
+        setIsHovered(true);
+      }
+    };
+
+    window.addEventListener("deviceorientation", handleOrientation);
+    return () => {
+      window.removeEventListener("deviceorientation", handleOrientation);
+    };
+  }, []);
+
   const [slogan] = useState(() => {
     return SLOGANS[Math.floor(Math.random() * SLOGANS.length)];
   });
@@ -487,6 +539,7 @@ RealPay 实时薪水`;
   const onTouchStart = (e: React.TouchEvent) => {
     setTouchEnd(null);
     setTouchStart(e.targetTouches[0].clientX);
+    requestOrientationPermission();
   };
 
   const onTouchMove = (e: React.TouchEvent) => {
@@ -539,7 +592,10 @@ RealPay 实时薪水`;
   };
 
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-fade-in">
+    <div
+      onClick={requestOrientationPermission}
+      className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-fade-in"
+    >
       <div className="bg-neutral-900 border border-neutral-800 rounded-2xl w-full max-w-[360px] overflow-hidden flex flex-col max-h-[90vh] transform -translate-y-8 sm:-translate-y-12 transition-all duration-300 ease-out">
         {/* Modal Header */}
         <div className="px-4 py-3 border-b border-neutral-850 flex items-center justify-between">
@@ -814,20 +870,6 @@ RealPay 实时薪水`;
                 </div>
               </div>
             </motion.div>
-          </div>
-
-          {/* Minimal Subtle Dot Indicator */}
-          <div className="flex justify-center gap-1.5 pt-1.5 select-none">
-            <button
-              onClick={() => switchCard(0)}
-              className={`w-1.5 h-1.5 rounded-full transition-all cursor-pointer ${activeCard === 0 ? "bg-purple-500 w-3.5" : "bg-neutral-800"}`}
-              title="今日收益"
-            />
-            <button
-              onClick={() => switchCard(1)}
-              className={`w-1.5 h-1.5 rounded-full transition-all cursor-pointer ${activeCard === 1 ? "bg-emerald-400 w-3.5" : "bg-neutral-800"}`}
-              title="摸鱼详情"
-            />
           </div>
         </div>
 
