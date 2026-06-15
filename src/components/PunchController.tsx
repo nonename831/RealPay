@@ -172,10 +172,20 @@ export default function PunchController({
 
         {/* PUNCH OUT BUTTON */}
         {!punchInTime ? (
-          <div className="w-full bg-[#141414]/25 border border-neutral-900 text-neutral-600 py-3.5 rounded-2xl text-xs font-bold flex items-center justify-center gap-1.5 opacity-50 select-none">
-            <span>🔒</span>
-            <span>下班打卡</span>
-          </div>
+          !isWorkdayToday ? (
+            <button
+              disabled
+              className="w-full bg-[#141414]/40 border border-neutral-900 text-neutral-500 py-3.5 rounded-2xl font-bold flex items-center justify-center gap-1.5 opacity-50 cursor-not-allowed text-xs select-none"
+            >
+              <span>🔒</span>
+              <span>非工作日</span>
+            </button>
+          ) : (
+            <div className="w-full bg-[#141414]/25 border border-neutral-900 text-neutral-600 py-3.5 rounded-2xl text-xs font-bold flex items-center justify-center gap-1.5 opacity-50 select-none">
+              <span>🔒</span>
+              <span>下班打卡</span>
+            </div>
+          )
         ) : !punchOutTime ? (
           !isWorkdayToday ? (
             <button

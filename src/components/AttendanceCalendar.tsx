@@ -80,7 +80,10 @@ export default function AttendanceCalendar({
   };
 
   const handleCellClick = (dStr: string) => {
-    if (isFutureDate(dStr)) return; // No editing future dates
+    if (isFutureDate(dStr)) {
+      setSelectedDateStr(null);
+      return;
+    }
 
     if (selectedDateStr === dStr) {
       setSelectedDateStr(null);
@@ -194,9 +197,11 @@ export default function AttendanceCalendar({
               {Array.from({ length: paddingDaysCount }).map((_, idx) => {
                 const dayNum = prevMonthLastDay - paddingDaysCount + 1 + idx;
                 return (
-                  <div
+                  <button
                     key={`prev-pad-${idx}`}
-                    className="h-9 flex flex-col items-center justify-between p-1 rounded-lg bg-neutral-900/30 border border-dashed border-neutral-800/40 opacity-50 select-none cursor-not-allowed"
+                    onClick={() => setSelectedDateStr(null)}
+                    type="button"
+                    className="h-9 flex flex-col items-center justify-between p-1 rounded-lg bg-neutral-900/30 border border-dashed border-neutral-800/40 opacity-50 select-none cursor-not-allowed text-left w-full"
                   >
                     <span className="text-[10px] leading-none font-mono text-neutral-500">
                       {dayNum}
@@ -204,7 +209,7 @@ export default function AttendanceCalendar({
                     <div className="flex gap-0.5 justify-center items-center w-full">
                       <span className="h-0.5 w-0.5 rounded-full bg-transparent" />
                     </div>
-                  </div>
+                  </button>
                 );
               })}
 
@@ -243,7 +248,6 @@ export default function AttendanceCalendar({
                 return (
                   <button
                     key={`day-${dayNum}`}
-                    disabled={isFuture}
                     onClick={() => handleCellClick(dateStr)}
                     className={`relative h-9 flex flex-col items-center justify-between p-1 rounded-lg transition-all text-left ${bgClass} ${isFuture ? "cursor-not-allowed" : "cursor-pointer"
                       }`}
@@ -272,9 +276,11 @@ export default function AttendanceCalendar({
               {Array.from({ length: 42 - paddingDaysCount - totalDays }).map((_, idx) => {
                 const dayNum = idx + 1;
                 return (
-                  <div
+                  <button
                     key={`next-pad-${idx}`}
-                    className="h-9 flex flex-col items-center justify-between p-1 rounded-lg bg-neutral-900/30 border border-dashed border-neutral-800/40 opacity-50 select-none cursor-not-allowed"
+                    onClick={() => setSelectedDateStr(null)}
+                    type="button"
+                    className="h-9 flex flex-col items-center justify-between p-1 rounded-lg bg-neutral-900/30 border border-dashed border-neutral-800/40 opacity-50 select-none cursor-not-allowed text-left w-full"
                   >
                     <span className="text-[10px] leading-none font-mono text-neutral-500">
                       {dayNum}
@@ -282,7 +288,7 @@ export default function AttendanceCalendar({
                     <div className="flex gap-0.5 justify-center items-center w-full">
                       <span className="h-0.5 w-0.5 rounded-full bg-transparent" />
                     </div>
-                  </div>
+                  </button>
                 );
               })}
             </div>
