@@ -313,12 +313,16 @@ export default function ShareModal({
         if (event.gamma === 0 && event.beta === 0) return;
 
         const maxTilt = 18;
-        // Map gamma [-35, 35] (left/right tilting) to rotateY [-maxTilt, maxTilt]
-        const targetRotateY = (Math.min(Math.max(event.gamma, -35), 35) / 35) * maxTilt;
+        const betaVal = Math.abs(event.beta);
+        // Smoothly scale down tilt when the phone is placed flat (beta < 40), reaching 0 when fully flat (< 15)
+        const flatMultiplier = betaVal >= 40 ? 1 : Math.max(0, (betaVal - 15) / 25);
 
-        // Map beta (centering around natural 60 deg angle) to rotateX [-maxTilt, maxTilt]
+        // Map gamma [-35, 35] (left/right tilting) to rotateY [-maxTilt, maxTilt] with flat dampening
+        const targetRotateY = ((Math.min(Math.max(event.gamma, -35), 35) / 35) * maxTilt) * flatMultiplier;
+
+        // Map beta (centering around natural 60 deg angle) to rotateX [-maxTilt, maxTilt] with flat dampening
         const centeredBeta = event.beta - 60;
-        const targetRotateX = -(Math.min(Math.max(centeredBeta, -30), 30) / 30) * maxTilt;
+        const targetRotateX = (-(Math.min(Math.max(centeredBeta, -30), 30) / 30) * maxTilt) * flatMultiplier;
 
         setRotateY(targetRotateY);
         setRotateX(targetRotateX);

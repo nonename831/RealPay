@@ -409,6 +409,14 @@ export default function App() {
 
   // Clock operations
   const handlePunchIn = (time: Date) => {
+    // Device vibration feedback: double pulse for Clock-In
+    if (typeof window !== "undefined" && navigator.vibrate) {
+      try {
+        navigator.vibrate([60, 40, 60]);
+      } catch (e) {
+        console.warn("Vibration not supported or blocked:", e);
+      }
+    }
     const rec: PunchRecord = {
       date: getTodayStr(),
       inTime: time.toISOString(),
@@ -421,6 +429,15 @@ export default function App() {
 
   const handlePunchOut = (time: Date) => {
     if (!punchInTime) return;
+
+    // Device vibration feedback: stronger double pulse for Clock-Out
+    if (typeof window !== "undefined" && navigator.vibrate) {
+      try {
+        navigator.vibrate([100, 50, 100]);
+      } catch (e) {
+        console.warn("Vibration not supported or blocked:", e);
+      }
+    }
 
     // Auto terminate and save slack session if currently slacking
     if (slacking && slackStart) {
@@ -535,10 +552,26 @@ export default function App() {
         alert("您今天已经下班打卡，下班后不能开启摸鱼！🏠");
         return;
       }
+      // Device vibration feedback: rapid triple tickle-pulse for starting slacking
+      if (typeof window !== "undefined" && navigator.vibrate) {
+        try {
+          navigator.vibrate([40, 40, 40, 40, 40]);
+        } catch (e) {
+          console.warn("Vibration not supported or blocked:", e);
+        }
+      }
       const sStart = new Date();
       setSlackStart(sStart);
       setSlacking(true);
     } else {
+      // Device vibration feedback: simple single alert-pulse for stopping slacking
+      if (typeof window !== "undefined" && navigator.vibrate) {
+        try {
+          navigator.vibrate(80);
+        } catch (e) {
+          console.warn("Vibration not supported or blocked:", e);
+        }
+      }
       if (slackStart) {
         const sEnd = new Date();
         const mins = (sEnd.getTime() - slackStart.getTime()) / 60000;
