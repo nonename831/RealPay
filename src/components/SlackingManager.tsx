@@ -379,6 +379,14 @@ export default function SlackingManager({
                   </div>
                   <div className="flex items-center gap-3">
                     <span className="sli-right">{settings.currency || "RM"} {s.earned.toFixed(2)}</span>
+                    <button
+                      type="button"
+                      onClick={() => onDeleteSession(s.id)}
+                      className="text-[10px] text-neutral-500 hover:text-red-400 font-bold focus:outline-none transition cursor-pointer select-none ml-1 px-1.5 py-0.5 hover:bg-red-500/10 rounded-md"
+                      title="删除此记录"
+                    >
+                      ✕
+                    </button>
                   </div>
                 </div>
               );

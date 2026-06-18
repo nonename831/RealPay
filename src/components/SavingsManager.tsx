@@ -342,7 +342,7 @@ export default function SavingsManager({
                     <button
                       type="button"
                       onClick={() => onDeleteGoal(g.id)}
-                      className="text-[10px] font-mono text-rose-405 border border-red-500/10 hover:border-red-400 px-2 py-0.5 rounded-full"
+                      className="text-[10px] font-mono text-rose-400 border border-red-500/10 hover:border-red-400 px-2 py-0.5 rounded-full"
                     >
                       🗑️ 删除
                     </button>

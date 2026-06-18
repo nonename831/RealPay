@@ -9,6 +9,12 @@ export interface AppSettings {
   workWeekdays?: number[]; // [0-6] where 0 is Sunday, 1 is Monday, etc.
   currency?: "RM" | "SGD";
   enableCommission?: boolean;
+  autoPunchEnabled?: boolean;
+  companyAddress?: string;
+  companyLat?: number;
+  companyLng?: number;
+  companyRadius?: number; // Geofence radius in km, default 2.0
+  googleMapsApiKey?: string;
 }
 
 export interface SlackSession {

@@ -156,6 +156,7 @@ export default function App() {
   );
 
   const [isHoliday, setIsHoliday] = useState<boolean>(false);
+  const [autoPunchToast, setAutoPunchToast] = useState<{ message: string; type: "success" | "info" } | null>(null);
 
   // Live calculated state updated by tick
   const [now, setNow] = useState(new Date());
@@ -482,6 +483,30 @@ export default function App() {
     setPunchRecord(null);
     storage.remove(PUNCH_KEY);
     syncPunchWithAllPunches(null);
+  };
+
+  const handleTriggerAutoPunch = (type: "in" | "out", reason: string) => {
+    if (type === "in") {
+      if (!punchRecord || !punchRecord.inTime) {
+        const nowTime = new Date();
+        handlePunchIn(nowTime);
+        setAutoPunchToast({
+          message: `自动上班打卡：已为您办理[上班签到] (${reason})`,
+          type: "success",
+        });
+        setTimeout(() => setAutoPunchToast(null), 8000);
+      }
+    } else {
+      if (punchRecord && punchRecord.inTime && !punchRecord.outTime) {
+        const nowTime = new Date();
+        handlePunchOut(nowTime);
+        setAutoPunchToast({
+          message: `自动下班打卡：已为您办理[下班签退] (${reason})`,
+          type: "info",
+        });
+        setTimeout(() => setAutoPunchToast(null), 8000);
+      }
+    }
   };
 
   const handleModifyPunch = (inStr: string | null, outStr: string | null) => {
@@ -904,6 +929,27 @@ export default function App() {
   return (
     <div className="w-full max-w-[520px] mx-auto min-h-screen flex flex-col relative bg-[#0f0f0f] text-[#f0ede8] font-sans">
 
+      {/* Auto Punch Floating Toast Notification */}
+      {autoPunchToast && (
+        <div className="fixed top-4 left-4 right-4 z-[9999] pointer-events-none">
+          <div className={`p-4 rounded-2xl shadow-2xl border flex items-center justify-between pointer-events-auto transition-all duration-300 transform translate-y-0 ${autoPunchToast.type === 'success'
+            ? 'bg-emerald-950/95 border-emerald-500/30 text-emerald-100 shadow-emerald-950/50'
+            : 'bg-[#18181b]/95 border-amber-500/30 text-amber-100 shadow-black/80'
+            }`}>
+            <div className="flex items-center gap-2.5 text-xs">
+              <span className="text-base shrink-0">{autoPunchToast.type === 'success' ? '🤖 ✅' : '🤖 📍'}</span>
+              <span className="leading-snug font-bold font-mono">{autoPunchToast.message}</span>
+            </div>
+            <button
+              onClick={() => setAutoPunchToast(null)}
+              className="text-neutral-400 hover:text-neutral-200 p-1.5 focus:outline-none cursor-pointer ml-3 font-bold"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* ── Main content pages ── */}
       <div className="w-full px-5 pb-2 z-10 safe-padding-top">
 
@@ -1169,6 +1215,7 @@ export default function App() {
               onUpdateSettings={handleUpdateSettings}
               history={history}
               onClearHistory={handleClearHistory}
+              onTriggerAutoPunch={handleTriggerAutoPunch}
             />
           </div>
         )}

@@ -1,6 +1,8 @@
 import { useState } from "react";
+import { motion, AnimatePresence } from "motion/react";
 import { AppSettings, MonthHistory } from "../types";
 import { fmt12, toMins } from "../utils/calculations";
+import AutoPunchMap from "./AutoPunchMap";
 
 const WEEKDAY_OPTIONS = [
   { value: 0, label: "日" },
@@ -17,6 +19,7 @@ interface SettingsManagerProps {
   onUpdateSettings: (newSettings: AppSettings) => void;
   history: MonthHistory[];
   onClearHistory: () => void;
+  onTriggerAutoPunch: (type: "in" | "out", reason: string) => void;
 }
 
 export default function SettingsManager({
@@ -24,6 +27,7 @@ export default function SettingsManager({
   onUpdateSettings,
   history,
   onClearHistory,
+  onTriggerAutoPunch,
 }: SettingsManagerProps) {
   // Query state
   const [queryStart, setQueryStart] = useState("09:00");
@@ -418,6 +422,47 @@ export default function SettingsManager({
             </div>
           </div>
         </div>
+      </div>
+
+      {/* 4. Auto GPS Punching fence section */}
+      <div className="sec-head">自动上下班打卡</div>
+      <div className="settings-card space-y-3.5">
+        <div className="flex items-center justify-between pb-1 select-none">
+          <div>
+            <span className="text-xs font-bold text-neutral-200 block">启用1km范围自动打卡</span>
+            <span className="text-[10px] text-neutral-400 block mt-0.5">当检测到您处于公司 1 公里以内时自动签到上班、签退下班</span>
+          </div>
+          <label htmlFor="auto-punch-toggle" className="inline-flex items-center cursor-pointer select-none shrink-0 ml-4">
+            <input
+              type="checkbox"
+              id="auto-punch-toggle"
+              checked={settings.autoPunchEnabled || false}
+              onChange={(e) => handleSettingChange("autoPunchEnabled", e.target.checked)}
+              className="sr-only peer"
+            />
+            <div className="relative w-11 h-6 bg-neutral-800 peer-focus:outline-none rounded-full transition-colors duration-300 ease-in-out peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-neutral-200 after:border-neutral-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all after:duration-300 peer-checked:bg-emerald-500"></div>
+          </label>
+        </div>
+
+        <AnimatePresence initial={false}>
+          {settings.autoPunchEnabled && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.3, ease: "easeInOut" }}
+              className="overflow-hidden"
+            >
+              <div className="pt-2.5 border-t border-neutral-850">
+                <AutoPunchMap
+                  settings={settings}
+                  onUpdateSettings={onUpdateSettings}
+                  onTriggerAutoPunch={onTriggerAutoPunch}
+                />
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* 2. Range query calculator */}

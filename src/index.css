@@ -2113,3 +2113,52 @@ input,
 select {
   color-scheme: dark;
 }
+
+/* Beautiful Google Autocomplete .pac-container dark theme styles */
+.pac-container {
+  background-color: #16161a !important;
+  border: 1px solid #2e2e34 !important;
+  border-radius: 12px !important;
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.9) !important;
+  font-family: inherit !important;
+  margin-top: 4px !important;
+  z-index: 999999 !important;
+}
+
+.pac-item {
+  border-top: 1px solid #1e1e24 !important;
+  padding: 8px 12px !important;
+  color: #c8c5c0 !important;
+  font-size: 11px !important;
+  cursor: pointer !important;
+}
+
+.pac-item:hover {
+  background-color: rgba(16, 185, 129, 0.08) !important;
+}
+
+.pac-item-query {
+  color: #f0ede8 !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+}
+
+.pac-matched {
+  color: #10b981 !important;
+}
+
+.pac-icon {
+  filter: invert(0.8) hue-rotate(120deg) !important;
+}
+
+/* Custom element styling for gmp-place-autocomplete */
+gmp-place-autocomplete {
+  width: 100% !important;
+  --background-color: transparent !important;
+  --border-radius: 0 !important;
+  --border-width: 0 !important;
+  --text-color: #e5e5e5 !important;
+  --placeholder-color: #525252 !important;
+  --font-size: 12px !important;
+  --font-family: inherit !important;
+}
