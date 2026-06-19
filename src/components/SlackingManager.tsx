@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   ResponsiveContainer,
   ComposedChart,
@@ -96,6 +96,16 @@ export default function SlackingManager({
 }: SlackingManagerProps) {
   const [selectedAch, setSelectedAch] = useState<Achievement | null>(null);
 
+  // Load permanently unlocked achievements from localStorage
+  const [unlockedAchs, setUnlockedAchs] = useState<string[]>(() => {
+    try {
+      const stored = localStorage.getItem("realpay_unlocked_achievements_v3");
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  });
+
   const formatSecs = (totalSecs: number): string => {
     const h = Math.floor(totalSecs / 3600);
     const m = Math.floor((totalSecs % 3600) / 60);
@@ -166,8 +176,10 @@ export default function SlackingManager({
     return "low";
   };
 
-  // Achievement Checkers
+  // Achievement Checkers (Checks if already in the permanent set, or if conditions are met today)
   const isUnlocked = (achId: string) => {
+    if (unlockedAchs.includes(achId)) return true;
+
     switch (achId) {
       case "first_slack":
         return slackSessions.length > 0 || slacking;
@@ -189,6 +201,46 @@ export default function SlackingManager({
         return false;
     }
   };
+
+  // Sync newly unlocked achievements to persistent local storage
+  useEffect(() => {
+    const isMatched = (achId: string) => {
+      switch (achId) {
+        case "first_slack":
+          return slackSessions.length > 0 || slacking;
+        case "slack_30":
+          return totalSlackMins >= 30;
+        case "slack_60":
+          return totalSlackMins >= 60;
+        case "slack_120":
+          return totalSlackMins >= 120;
+        case "slack_180":
+          return totalSlackMins >= 180;
+        case "early_bird":
+          return slackSessions.some(s => new Date(s.start).getHours() < 9) || (slacking && slackStart && slackStart.getHours() < 9);
+        case "night_owl":
+          return slackSessions.some(s => new Date(s.start).getHours() >= 18) || (slacking && slackStart && slackStart.getHours() >= 18);
+        case "multi_session":
+          return slackSessions.length >= 3;
+        default:
+          return false;
+      }
+    };
+
+    const freshUnlockedList = ACHIEVEMENTS.filter(a => {
+      return unlockedAchs.includes(a.id) || isMatched(a.id);
+    }).map(a => a.id);
+
+    // Only update if there is a new unlocked achievement
+    if (freshUnlockedList.length !== unlockedAchs.length) {
+      setUnlockedAchs(freshUnlockedList);
+      try {
+        localStorage.setItem("realpay_unlocked_achievements_v3", JSON.stringify(freshUnlockedList));
+      } catch (err) {
+        console.error("Failed to save achievements:", err);
+      }
+    }
+  }, [slackSessions, slacking, slackStart, totalSlackMins, unlockedAchs]);
 
   // Week Chart
   const days = ["一", "二", "三", "四", "五", "六", "日"];
@@ -389,9 +441,12 @@ export default function SlackingManager({
       {/* Week slacking Bar Chart via Recharts */}
       <div className="slack-chart-card scroll-mt-20">
         <div className="flex items-center justify-between mb-4">
-          <div className="chart-head mb-0">📈 本周摸鱼数据与趋势分析 (Recharts)</div>
+          <div className="chart-head mb-0">📈 本周摸鱼数据</div>
           <span className="text-[10px] text-neutral-400 font-sans">
-            平均每日: {Math.round(weekValues.reduce((a, b) => a + b, 0) / 7)} 分钟
+            平均每日: {(() => {
+              const activeDays = weekValues.filter(v => v > 0).length;
+              return activeDays > 0 ? Math.round(weekValues.reduce((a, b) => a + b, 0) / activeDays) : 0;
+            })()} 分钟
           </span>
         </div>
 
@@ -449,6 +504,7 @@ export default function SlackingManager({
               <YAxis
                 tickLine={false}
                 axisLine={false}
+                tickFormatter={(value) => Number(value).toFixed(2)}
                 tick={{ fill: "#888888", fontSize: 10, fontFamily: "var(--font-mono)" }}
               />
               <RechartsTooltip

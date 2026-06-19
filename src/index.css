@@ -1716,6 +1716,19 @@ body::-webkit-scrollbar {
   margin-bottom: 1rem;
 }
 
+/* Prevent default browser focus outline ("white border" / outline) when clicking elements inside Recharts */
+.recharts-wrapper,
+.recharts-wrapper *,
+.recharts-surface,
+.recharts-surface *,
+.recharts-wrapper *:focus,
+.recharts-wrapper *:active,
+.recharts-wrapper *:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+  -webkit-tap-highlight-color: transparent !important;
+}
+
 .chart-head {
   font-size: 11px;
   font-family: var(--mono);

@@ -9,10 +9,10 @@ import PunchController from "./components/PunchController";
 import SavingsManager from "./components/SavingsManager";
 import CommissionManager from "./components/CommissionManager";
 import SlackingManager from "./components/SlackingManager";
-import GoodsList from "./components/GoodsList";
 import ShareModal from "./components/ShareModal";
 import SettingsManager from "./components/SettingsManager";
 import AttendanceCalendar from "./components/AttendanceCalendar";
+import SurvivalAssistant from "./components/SurvivalAssistant";
 
 // Icons
 import { Compass, User, Settings, Sparkles, Share2, Award, ArrowUpRight, ChevronRight, HelpCircle } from "lucide-react";
@@ -933,8 +933,8 @@ export default function App() {
       {autoPunchToast && (
         <div className="fixed top-4 left-4 right-4 z-[9999] pointer-events-none">
           <div className={`p-4 rounded-2xl shadow-2xl border flex items-center justify-between pointer-events-auto transition-all duration-300 transform translate-y-0 ${autoPunchToast.type === 'success'
-            ? 'bg-emerald-950/95 border-emerald-500/30 text-emerald-100 shadow-emerald-950/50'
-            : 'bg-[#18181b]/95 border-amber-500/30 text-amber-100 shadow-black/80'
+              ? 'bg-emerald-950/95 border-emerald-500/30 text-emerald-100 shadow-emerald-950/50'
+              : 'bg-[#18181b]/95 border-amber-500/30 text-amber-100 shadow-black/80'
             }`}>
             <div className="flex items-center gap-2.5 text-xs">
               <span className="text-base shrink-0">{autoPunchToast.type === 'success' ? '🤖 ✅' : '🤖 📍'}</span>
@@ -964,11 +964,11 @@ export default function App() {
               </div>
               <div className="badge">
                 <span className={`dot ${(!slacking && metrics.statusLabel === "午休中") ? "lunch-break" :
-                  (!slacking && metrics.statusLabel === "等上班") ? "wait-work" :
-                    slacking ? "working" :
-                      metrics.isWorking ? "working" :
-                        metrics.isOT ? "ot" :
-                          isHoliday ? "done" : "off"
+                    (!slacking && metrics.statusLabel === "等上班") ? "wait-work" :
+                      slacking ? "working" :
+                        metrics.isWorking ? "working" :
+                          metrics.isOT ? "ot" :
+                            isHoliday ? "done" : "off"
                   }`} style={
                     slacking
                       ? { backgroundColor: "#a78bfa" }
@@ -1017,8 +1017,8 @@ export default function App() {
               <div className="hero-amount">
                 <span className="hero-rm">{settings.currency || "RM"}</span>
                 <span className={`hero-num ${slacking ? "slacking" :
-                  metrics.isOT ? "overtime" :
-                    isHoliday ? "holiday" : "live"
+                    metrics.isOT ? "overtime" :
+                      isHoliday ? "holiday" : "live"
                   } ${isPopping ? "pop" : ""}`}>
                   {todayTotalEarned.toFixed(2)}
                 </span>
@@ -1138,18 +1138,14 @@ export default function App() {
             </div>
 
             {/* General daily earned overview and status clocks */}
-            <div className="today-full select-none">
-              <span className="tf-lbl">今日应得总计</span>
-              <span className="tf-val">{punchInTime ? `${settings.currency || "RM"} ${dailySal.toFixed(2)}` : "—"}</span>
-            </div>
 
             <div className="status-bar select-none">
               <span className="status-msg">{getStatusMsg()}</span>
               <span className="status-clock">{fmt12Full(now)}</span>
             </div>
 
-            {/* Customizable pricing consumer grids */}
-            <GoodsList settings={settings} currentEarned={todayTotalEarned} />
+            {/* Office Survival Assistant: Lunch Decider & Coffee Intake Trackers */}
+            <SurvivalAssistant />
 
             {/* Floating multiple Savings goals */}
             <SavingsManager
@@ -1186,7 +1182,7 @@ export default function App() {
 
         {/* ── Tab: SLACKING ── */}
         {activeTab === "slack" && (
-          <div className="page active">
+          <div className="page active space-y-4">
             <SlackingManager
               slacking={slacking}
               slackStart={slackStart}
