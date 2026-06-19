@@ -133,12 +133,12 @@ export default function AutoPunchMap({
 
     // ---- Straight-line distance (cheap, no API call) ----
     useEffect(() => {
-        if (settings.companyLat !== undefined && settings.companyLng !== undefined) {
-            setDistance(getDistanceKm(currentLat, currentLng, settings.companyLat, settings.companyLng));
+        if (userCoords && settings.companyLat !== undefined && settings.companyLng !== undefined) {
+            setDistance(getDistanceKm(userCoords.lat, userCoords.lng, settings.companyLat, settings.companyLng));
         } else {
             setDistance(null);
         }
-    }, [currentLat, currentLng, settings.companyLat, settings.companyLng]);
+    }, [userCoords, settings.companyLat, settings.companyLng]);
 
     // ---- Road distance via DistanceMatrixService (billed — throttled) ----
     const lastMatrixCallRef = useRef<{ time: number; lat: number; lng: number } | null>(null);
@@ -406,13 +406,15 @@ export default function AutoPunchMap({
                             <div className="flex items-center justify-between gap-3">
                                 <div className="flex items-center gap-2 min-w-0">
                                     <Car className={`w-4 h-4 shrink-0 ${isInsideRange ? "text-emerald-400" : "text-neutral-500"}`} />
-                                    <span className="text-[12px] text-neutral-400 truncate">
-                                        车程{" "}
+                                    <span className="text-[12px] text-neutral-400 truncate flex items-center">
+                                        <span className="mr-1">
+                                            {roadDistance ? "车程:" : "直线距离:"}
+                                        </span>
                                         <strong
-                                            className={`font-mono font-semibold text-sm ml-1 ${isInsideRange ? "text-emerald-300" : "text-neutral-100"
+                                            className={`font-mono font-semibold text-sm ${isInsideRange ? "text-emerald-300" : "text-neutral-100"
                                                 }`}
                                         >
-                                            {roadDistance ? roadDistance : "计算中…"}
+                                            {roadDistance ? roadDistance : `~${distance.toFixed(2)}公里`}
                                         </strong>
                                     </span>
                                 </div>

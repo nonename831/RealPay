@@ -1,4 +1,14 @@
 import { useState } from "react";
+import {
+  ResponsiveContainer,
+  ComposedChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip as RechartsTooltip,
+  ReferenceLine,
+  Cell,
+} from "recharts";
 import { SlackSession, AppSettings } from "../types";
 import { fmtMinsChinese, toMins } from "../utils/calculations";
 
@@ -25,6 +35,37 @@ interface Achievement {
   name: string;
   desc: string;
 }
+
+const CustomTooltip = ({ active, payload }: any) => {
+  if (active && payload && payload.length) {
+    const data = payload[0].payload;
+    return (
+      <div className="bg-neutral-900 border border-neutral-700/60 p-2.5 rounded-xl shadow-lg font-sans text-xs flex flex-col gap-1">
+        <div className="text-neutral-400 flex items-center justify-between gap-4 font-bold text-[10px]">
+          <span>周{data.day} ({data.date})</span>
+          {data.isToday && (
+            <span className="bg-emerald-500/10 text-emerald-400 px-1 rounded text-[8px]">
+              今日
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-1.5 mt-0.5">
+          <span className={`w-1.5 h-1.5 rounded-full ${data.isOver ? "bg-rose-500" : (data.isToday ? "bg-emerald-400" : "bg-purple-450")}`} />
+          <span className="text-neutral-300">时长:</span>
+          <span className="font-mono font-bold text-neutral-100">{data["摸鱼时长"]} 分钟</span>
+        </div>
+        <div className="text-[10px] text-neutral-500">
+          {data["摸鱼时长"] > data["上限"] ? (
+            <span className="text-rose-400/80">超过上限 {Math.round(data["摸鱼时长"] - data["上限"])} 分钟 ⚠️</span>
+          ) : (
+            <span>度量饱满: {Math.round((data["摸鱼时长"] / (data["上限"] || 1)) * 100)}%</span>
+          )}
+        </div>
+      </div>
+    );
+  }
+  return null;
+};
 
 const ACHIEVEMENTS: Achievement[] = [
   { id: "first_slack", icon: "🐟", name: "初次开溜", desc: "第一次开启摸鱼模式，恭喜起锚！" },
@@ -179,6 +220,20 @@ export default function SlackingManager({
 
   const maxVal = Math.max(...weekValues, slackGoalMins, 10);
 
+  const chartData = days.map((day, i) => {
+    const val = weekValues[i];
+    const isToday = i === dayOfWeekIndex;
+    const isOver = val > slackGoalMins;
+    return {
+      day,
+      date: weekDates[i],
+      "摸鱼时长": parseFloat(val.toFixed(1)),
+      "上限": slackGoalMins,
+      isToday,
+      isOver,
+    };
+  });
+
   const isPunchInOk = !!punchInTime;
   const isPunchOutOk = !!punchOutTime;
   const cannotSlack = !isPunchInOk || isPunchOutOk;
@@ -331,29 +386,111 @@ export default function SlackingManager({
         )}
       </div>
 
-      {/* Week slacking Bar Chart */}
-      <div className="slack-chart-card">
-        <div className="chart-head">📈 本周摸鱼曲线统计</div>
-        <div className="week-chart">
-          {days.map((day, i) => {
-            const val = weekValues[i];
-            const isToday = i === dayOfWeekIndex;
-            const isOver = val > slackGoalMins;
-            const barHeightPct = ((val / maxVal) * 100).toFixed(1);
+      {/* Week slacking Bar Chart via Recharts */}
+      <div className="slack-chart-card scroll-mt-20">
+        <div className="flex items-center justify-between mb-4">
+          <div className="chart-head mb-0">📈 本周摸鱼数据与趋势分析 (Recharts)</div>
+          <span className="text-[10px] text-neutral-400 font-sans">
+            平均每日: {Math.round(weekValues.reduce((a, b) => a + b, 0) / 7)} 分钟
+          </span>
+        </div>
 
-            return (
-              <div key={i} className="wc-col">
-                <span className="wc-mins">{val > 0 ? Math.round(val) : ""}</span>
-                <div className="wc-bar-wrap">
-                  <div
-                    className={`wc-bar ${isToday ? "today" : ""} ${isOver ? "over" : ""}`}
-                    style={{ height: `${barHeightPct}%` }}
-                  />
-                </div>
-                <span className={`wc-day ${isToday ? "text-[#7c3aed] font-bold" : ""}`}>{day}</span>
-              </div>
-            );
-          })}
+        {/* Dynamic Habit Analysis */}
+        <div className="grid grid-cols-2 gap-3 mb-4 select-none">
+          <div className="p-2.5 rounded-xl bg-neutral-900/60 border border-neutral-800 flex flex-col justify-center">
+            <span className="text-[9px] text-neutral-500 font-sans block mb-0.5">本周摸鱼高峰</span>
+            <span className="text-xs font-bold text-neutral-200">
+              {(() => {
+                const maxDayIdx = weekValues.indexOf(Math.max(...weekValues));
+                if (Math.max(...weekValues) === 0) return "暂无摸鱼记录";
+                return `周${days[maxDayIdx]} (${Math.round(weekValues[maxDayIdx])}分钟)`;
+              })()}
+            </span>
+          </div>
+          <div className="p-2.5 rounded-xl bg-neutral-900/60 border border-neutral-800 flex flex-col justify-center">
+            <span className="text-[9px] text-neutral-500 font-sans block mb-0.5">滑水自律表现</span>
+            <span className="text-xs font-bold text-emerald-400">
+              {(() => {
+                const overDays = weekValues.filter(v => v > slackGoalMins).length;
+                if (overDays === 0) return "自控完美，未超上限";
+                return `${overDays}天超额犯规 ⚠️`;
+              })()}
+            </span>
+          </div>
+        </div>
+
+        {/* Recharts Block */}
+        <div className="w-full h-44 select-none pr-1">
+          <ResponsiveContainer width="100%" height="100%">
+            <ComposedChart
+              data={chartData}
+              margin={{ top: 15, right: 5, left: -25, bottom: 0 }}
+            >
+              <defs>
+                <linearGradient id="barGradNormal" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#a78bfa" stopOpacity={0.85} />
+                  <stop offset="100%" stopColor="#7c3aed" stopOpacity={0.25} />
+                </linearGradient>
+                <linearGradient id="barGradOver" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#f43f5e" stopOpacity={0.85} />
+                  <stop offset="100%" stopColor="#be123c" stopOpacity={0.25} />
+                </linearGradient>
+                <linearGradient id="barGradToday" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#10b981" stopOpacity={0.85} />
+                  <stop offset="100%" stopColor="#047857" stopOpacity={0.25} />
+                </linearGradient>
+              </defs>
+              <XAxis
+                dataKey="day"
+                tickLine={false}
+                axisLine={false}
+                tick={{ fill: "#888888", fontSize: 10, fontFamily: "var(--font-sans)" }}
+              />
+              <YAxis
+                tickLine={false}
+                axisLine={false}
+                tick={{ fill: "#888888", fontSize: 10, fontFamily: "var(--font-mono)" }}
+              />
+              <RechartsTooltip
+                content={<CustomTooltip />}
+                cursor={{ fill: "rgba(255, 255, 255, 0.05)", radius: 6 }}
+              />
+              <ReferenceLine
+                y={slackGoalMins}
+                stroke="#ef4444"
+                strokeDasharray="4 4"
+                label={{
+                  value: "每日上限线",
+                  position: "insideTopRight",
+                  fill: "#ef4444",
+                  fontSize: 8,
+                  offset: 4,
+                }}
+              />
+              <Bar
+                dataKey="摸鱼时长"
+                radius={[4, 4, 0, 0]}
+                animationDuration={850}
+              >
+                {chartData.map((entry, index) => {
+                  let fill = "url(#barGradNormal)";
+                  if (entry.isOver) {
+                    fill = "url(#barGradOver)";
+                  } else if (entry.isToday) {
+                    fill = "url(#barGradToday)";
+                  }
+                  return (
+                    <Cell
+                      key={`cell-${index}`}
+                      fill={fill}
+                      stroke={entry.isToday ? "#10b981" : "transparent"}
+                      strokeWidth={entry.isToday ? 1.5 : 0}
+                    />
+                  );
+                })}
+              </Bar>
+            </ComposedChart>
+          </ResponsiveContainer>
         </div>
       </div>
 
