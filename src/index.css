@@ -64,6 +64,22 @@ body {
   touch-action: manipulation;
   scrollbar-width: none !important;
   -ms-overflow-style: none !important;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+input,
+textarea {
+  user-select: text !important;
+  -webkit-user-select: text !important;
+}
+
+.tab-icon,
+.wx-icon,
+button span,
+.hero-amount span {
+  pointer-events: none;
 }
 
 body::-webkit-scrollbar {

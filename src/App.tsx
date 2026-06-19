@@ -147,9 +147,22 @@ export default function App() {
     storage.get<PunchRecord[]>(ALL_PUNCHES_KEY, [])
   );
 
-  const [history, setHistory] = useState<MonthHistory[]>(() =>
-    storage.get<MonthHistory[]>(HISTORY_KEY, [])
-  );
+  const [history, setHistory] = useState<MonthHistory[]>(() => {
+    const raw = storage.get<MonthHistory[]>(HISTORY_KEY, []);
+    let changed = false;
+    const migrated = raw.map(item => {
+      const cleaned = item.month ? item.month.trim() : "";
+      if (cleaned === "2026-0" || cleaned === "2026-00" || cleaned === "2026-06" || cleaned.endsWith("-0") || cleaned.endsWith("-00")) {
+        changed = true;
+        return { ...item, month: "2026-01" };
+      }
+      return item;
+    });
+    if (changed) {
+      storage.set(HISTORY_KEY, migrated);
+    }
+    return migrated;
+  });
 
   const [weeklyData, setWeeklyData] = useState<{ [date: string]: number }>(() =>
     storage.get<{ [date: string]: number }>(WEEK_KEY, {})

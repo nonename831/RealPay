@@ -14,6 +14,22 @@ const WEEKDAY_OPTIONS = [
   { value: 6, label: "六" },
 ];
 
+const formatHistoryMonth = (monthStr: string): string => {
+  if (!monthStr) return "";
+  const cleaned = monthStr.trim();
+  if (cleaned === "2026-0" || cleaned === "2026-00") return "2026年1月";
+  const parts = cleaned.split("-");
+  if (parts.length === 2) {
+    const year = parts[0];
+    let month = parseInt(parts[1], 10);
+    if (!isNaN(month)) {
+      if (month === 0) month = 1;
+      return `${year}年${month}月`;
+    }
+  }
+  return monthStr;
+};
+
 interface SettingsManagerProps {
   settings: AppSettings;
   onUpdateSettings: (newSettings: AppSettings) => void;
@@ -586,7 +602,7 @@ export default function SettingsManager({
                 className="bg-[#1e1e1e]/60 border border-neutral-850 p-3 rounded-xl space-y-1.5 font-mono text-xs"
               >
                 <div className="flex justify-between border-b border-neutral-850 pb-1.5 select-none">
-                  <span className="font-bold text-neutral-200">{h.month}</span>
+                  <span className="font-bold text-neutral-200">{formatHistoryMonth(h.month)}</span>
                   <span className="text-green-400 font-bold">
                     薪酬: {settings.currency || "RM"} {(h.totalBaseEarned + h.totalOTEarned).toFixed(2)}
                   </span>
