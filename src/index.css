@@ -1826,13 +1826,15 @@ body::-webkit-scrollbar {
   background: var(--surface2);
   border: 1px solid var(--border);
   border-radius: 9px;
-  padding: 9px 12px;
+  padding: 10px 12px;
+  line-height: 1.4;
 }
 
 .sli-left {
-  font-size: 12px;
+  font-size: 11px;
   font-family: var(--mono);
   color: var(--muted);
+  line-height: 1.4;
 }
 
 .sli-right {
@@ -1841,6 +1843,8 @@ body::-webkit-scrollbar {
   color: var(--purple);
   font-weight: 700;
   letter-spacing: -0.3px;
+  white-space: nowrap;
+  line-height: 1.4;
 }
 
 .slack-empty {

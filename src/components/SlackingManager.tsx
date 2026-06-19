@@ -564,18 +564,18 @@ export default function SlackingManager({
               const endStr = `${String(endDt.getHours()).padStart(2, "0")}:${String(endDt.getMinutes()).padStart(2, "0")}`;
 
               return (
-                <div key={s.id} className="slack-log-item flex items-center justify-between">
-                  <div className="sli-left">
-                    <span>{startStr} — {endStr}</span>
-                    <span className="mx-2 text-neutral-600">·</span>
-                    <span>时长: {s.mins < 1 ? `${Math.round(s.mins * 60)}秒` : `${Math.round(s.mins)}分钟`}</span>
+                <div key={s.id} className="slack-log-item flex items-center justify-between gap-2.5">
+                  <div className="sli-left flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                    <span className="whitespace-nowrap">{startStr} — {endStr}</span>
+                    <span className="text-neutral-700 select-none">·</span>
+                    <span className="whitespace-nowrap">时长: {s.mins < 1 ? `${Math.round(s.mins * 60)}秒` : `${Math.round(s.mins)}分钟`}</span>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <span className="sli-right">{settings.currency || "RM"} {s.earned.toFixed(2)}</span>
+                  <div className="flex items-center gap-2.5 flex-shrink-0">
+                    <span className="sli-right whitespace-nowrap">{settings.currency || "RM"} {s.earned.toFixed(2)}</span>
                     <button
                       type="button"
                       onClick={() => onDeleteSession(s.id)}
-                      className="text-[10px] text-neutral-500 hover:text-red-400 font-bold focus:outline-none transition cursor-pointer select-none ml-1 px-1.5 py-0.5 hover:bg-red-500/10 rounded-md"
+                      className="text-[10px] text-neutral-500 hover:text-red-400 font-bold focus:outline-none transition cursor-pointer select-none ml-0.5 px-1.5 py-0.5 hover:bg-red-500/10 rounded-md"
                       title="删除此记录"
                     >
                       ✕
