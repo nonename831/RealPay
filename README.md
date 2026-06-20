@@ -1,20 +1,59 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
+# 🐟 打工人摸鱼防守系统 · Office Survival & Auto-Punch Defender
 
-# Run and deploy your AI Studio app
+> **按时上班是本分，按时摸鱼是利息。**
+> 一款专为现代职场打工人量身打造的“终极工位防御与薪资收益收割系统”。融合了**高保真地图自动打卡**、**带薪薪资追踪**、**智能摸鱼水分监控**、**休息日动态天气治愈引擎**以及 **200+ 句极致打工人金句生成器**，全方位守卫你的身心健康，实现终极工作生活平衡。
 
-This contains everything you need to run your app locally.
+---
 
-View your app in AI Studio: https://ai.studio/apps/0781adcc-d985-4520-bee1-9594bd4a008f
+## 🎨 系统美学与视觉风格
 
-## Run Locally
+![Office Survival Banner](./src/assets/images/project_banner_1781928369276.jpg)
 
-**Prerequisites:**  Node.js
+本系统采用精心设计的 **深邃霓虹（Cosmic Dark Slate）** 设计语言：
+- **流光边界 (Neon Boundaries)**：高对比度黑金与荧光绿（Emerald Green）配色，营造科技感的同时提供极佳的护眼暗黑体验。
+- **动态呼吸响应 (Ambient Pulse)**：所有打卡及摸鱼状态自带流畅的微交互动效，提供直观的心理舒适反馈。
+- **排版黄金率 (Elegant Typography)**：标题采用 *Space Grotesk* 彰显技术硬核底色，数据和状态选用 *JetBrains Mono* 等宽字体，保障海量实时数值精准易读。
 
+---
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+## 🚀 核心战术模块介绍
+
+### 🗺️ 1. 守卫边界：智能自动打卡地图 (`AutoPunchMap`)
+- **地理围栏自动探测**：内置 Google Maps 模块，自定义打卡半隔离径、围栏中心，进入考勤范围自动触发声光模拟打卡。
+- **智能距离测算**：实时调用 `DistanceMatrixService` 计算你与公司的宿命距离（DRIVING Mode），合理预估卡点离厂时间。
+
+### 📊 2. 精算账本：利息与佣金管理系统 (`Commission & Savings`)
+- **带薪秒薪计算器**：实时翻滚今日已赚取的“带薪利润”，实时观察资金从老板血汗回流自己口袋。
+- **存款愿望单 (`Wishlist`)**：将摸鱼累计金额或固定工资，定向存入特定的数码、度假愿望单，摸鱼有终极物质回报。
+
+### 🔋 3. 防守反击：多维摸鱼水分管理系统 (`Slacking & Survival`)
+- **喝水与咖啡摄入追踪**：精确记录水分与咖啡因等级。带薪喝水变相提薪，拒绝脱水办公。
+- **午餐拯救决定器**：不知道吃什么？内置生存助理，一键随机决定，告别选择困难。
+- **拉屎收益计数器**：精准核算在厕所中带薪停留时间的秒级收益，见证每一滴水流冲走资本的泡沫。
+
+### 📅 4. 攻防日志：考勤日历 & 历史归档 (`AttendanceCalendar`)
+- 高清日历卡，直观标注打卡状态（按时、迟到、请假、摸鱼），将你的战果凝结为可视化图表，防守反击有迹可循。
+
+### 🌤️ 5. 心灵绿洲：全天候动态天气提示 (`WeatherWidget`)
+- **工作日 vs 休息日双重文案引擎**：
+  - **工作日**：提供机智的上班预警、雨天防迟到话术、防热带薪喝水提醒。
+  - **休息日/非工作日**：**15字内极简温情治愈文案**，不沾染任何半句班味！全心拥抱宁静假期（例：*“✨ 休息日好好享受生活”*、*“🌳 阳光正好，散散步吧”*）。
+- 精准调用 `open-meteo` 实施当地经纬度无缝探测配合超轻量空气气温解读。
+
+### 🖼️ 6. 宣告胜利：专属摸鱼金句海报生成 (`ShareModal`)
+- **200+ 句极致大作**：全面精简并提炼 200 首最强打工人至理名言。完美控制字限，拒绝废话，字字珠玑。
+- **海报渲染引擎**：支持自适应 Canvas 组合多态配色，一键保存精美高清卡片至本地，支持手机端陀螺仪倾斜微光投影，体验突破次元壁。
+
+---
+
+## 🛠️ 本地部署与开发指引
+
+### 环境依赖
+- **Node.js** 18+ 
+- **Vite** 支持 (React 18 & TypeScript)
+
+---
+
+## 🧑‍💻 免责声明 / Disclaimer
+> “工作就像演戏，我拿劳务费当影帝。” 
+> 本系统仅限用于缓解办公室职场焦虑、建立健康的劳动者生理防线之用。请确保在公司环境低调、静音、安全滑水。祝您摸鱼愉快，早日荣升自由打工人！
