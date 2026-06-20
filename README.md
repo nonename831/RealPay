@@ -7,8 +7,6 @@
 
 ## 🎨 系统美学与视觉风格
 
-![Office Survival Banner](./src/assets/images/project_banner_1781928369276.jpg)
-
 本系统采用精心设计的 **深邃霓虹（Cosmic Dark Slate）** 设计语言：
 - **流光边界 (Neon Boundaries)**：高对比度黑金与荧光绿（Emerald Green）配色，营造科技感的同时提供极佳的护眼暗黑体验。
 - **动态呼吸响应 (Ambient Pulse)**：所有打卡及摸鱼状态自带流畅的微交互动效，提供直观的心理舒适反馈。
