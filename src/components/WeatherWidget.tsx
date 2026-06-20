@@ -159,6 +159,51 @@ export default function WeatherWidget({ settings }: WeatherWidgetProps) {
     const currentHour = now.getHours();
     const isNight = currentHour >= 19 || currentHour < 6;
 
+    // Check if configuration has custom work Weekdays, default to Mon-Fri (1-5)
+    const workWeekdays = settings.workWeekdays ?? [1, 2, 3, 4, 5];
+    const todayDay = now.getDay();
+    const isWorkday = workWeekdays.includes(todayDay);
+
+    if (!isWorkday) {
+      if (isNight) {
+        if (isRaining) {
+          return { text: "🌧 雨天适合温被看剧", type: "warn" };
+        }
+        if (currentHour >= 19 && currentHour < 22) {
+          return { text: "✨ 休息日好好享受生活", type: "go" };
+        }
+        return { text: "💤 晚风温柔，做个好梦", type: "go" };
+      }
+
+      // Morning (6:00 - 11:30)
+      if (nowMins < 11 * 60 + 30) {
+        if (isRaining) {
+          return { text: "🌧 窗外细雨，宜睡懒觉", type: "warn" };
+        }
+        return { text: "🌅 惬意早晨，慢享早餐", type: "go" };
+      }
+
+      // Midday / Lunch (11:30 - 14:00)
+      if (nowMins >= 11 * 60 + 30 && nowMins < 14 * 60) {
+        if (isRaining) {
+          return { text: "🍕 阴雨连连，吃顿美食吧", type: "nah" };
+        }
+        if (isVeryHot) {
+          return { text: "🍦 烈日炎炎，空调冷饮", type: "nah" };
+        }
+        return { text: "🍽 休息日，吃餐好的吧", type: "go" };
+      }
+
+      // Afternoon (14:00 - 19:00)
+      if (isRaining) {
+        return { text: "🌧 听细雨声，静享时光", type: "nah" };
+      }
+      if (isVeryHot) {
+        return { text: "🥤 酷暑难耐，室内常驻", type: "go" };
+      }
+      return { text: "🌳 阳光正好，散散步吧", type: "go" };
+    }
+
     if (isNight) {
       if (isRaining) {
         return { text: "🌧 夜雨绵绵，出门注意防雨保暖", type: "warn" };
