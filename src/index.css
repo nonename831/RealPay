@@ -24,7 +24,7 @@
   --blue-glow: rgba(96, 165, 250, 0.12);
   --sans: "Space Grotesk", sans-serif;
   --mono: "Space Mono", monospace;
-  --tab-h: 64px;
+  --tab-h: 76px;
 }
 
 @theme {
@@ -93,8 +93,9 @@ body::-webkit-scrollbar {
 .tab-nav {
   position: fixed;
   bottom: 0;
-  left: 0;
-  right: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
   z-index: 100;
   height: calc(var(--tab-h) + env(safe-area-inset-bottom));
   padding-bottom: env(safe-area-inset-bottom);
@@ -110,39 +111,137 @@ body::-webkit-scrollbar {
   display: flex;
   width: 100%;
   max-width: 520px;
+  justify-content: space-around;
+  height: 100%;
+  align-items: center;
+}
+
+.tab-indicator-bg {
+  display: none;
 }
 
 .tab-btn {
   flex: 1;
+  height: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: 5px;
   padding: 8px 0;
   border: none;
   background: none;
   cursor: pointer;
   font-family: var(--sans);
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--muted);
   letter-spacing: 0.02em;
-  transition: color 0.2s;
+  transition: all 0.2s;
 }
 
 .tab-btn.active {
   color: var(--green);
+  background: transparent;
 }
 
 .tab-icon {
-  font-size: 21px;
+  font-size: 24px;
   line-height: 1;
   transition: transform 0.2s;
 }
 
 .tab-btn.active .tab-icon {
   transform: scale(1.15);
+}
+
+/* Custom Floating Mobile Design - Only applied on mobile screens */
+@media (max-width: 640px) {
+  body {
+    padding-bottom: calc(108px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .tab-nav {
+    bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+    left: 50%;
+    transform: translateX(-50%) translateY(0) scale(1);
+    width: calc(100% - 32px);
+    max-width: 380px;
+    height: 66px;
+    z-index: 1000;
+    background-color: #161618;
+    backdrop-filter: blur(28px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 9999px;
+    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.75);
+    padding: 5px;
+  }
+
+  .tab-nav-show {
+    transform: translateX(-50%) translateY(0) scale(1);
+    opacity: 1;
+    transition: transform 0.7s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.6s ease-out;
+  }
+
+  .tab-nav-hide {
+    transform: translateX(-50%) translateY(calc(100% + 24px)) scale(0.95);
+    opacity: 0;
+    pointer-events: none;
+    transition: transform 0.75s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.65s ease-in-out;
+  }
+
+  .tab-inner {
+    max-width: 100%;
+    justify-content: space-between;
+    height: 100%;
+    position: relative;
+  }
+
+  .tab-indicator-bg {
+    display: block;
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    background-color: #2e2e32;
+    border-radius: 9999px;
+    z-index: 0;
+  }
+
+  .tab-btn {
+    flex: 1;
+    height: 100%;
+    border-radius: 9999px;
+    font-size: 11.5px;
+    font-weight: 500;
+    color: #8e8e93;
+    gap: 2px;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    transition: all 0.25s cubic-bezier(0.25, 0.8, 0.25, 1);
+    position: relative;
+    z-index: 1;
+  }
+
+  .tab-btn .tab-icon {
+    font-size: 20px;
+    line-height: 1;
+    margin-bottom: 2px;
+    transition: transform 0.25s cubic-bezier(0.25, 0.8, 0.25, 1);
+  }
+
+  .tab-btn.active {
+    background-color: transparent;
+    color: #ffffff;
+    font-weight: 600;
+  }
+
+  .tab-btn.active .tab-icon {
+    transform: scale(1.12);
+  }
 }
 
 /* PAGES */

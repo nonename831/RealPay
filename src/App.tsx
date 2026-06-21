@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { AppSettings, SlackSession, SavingsGoal, MonthHistory, PunchRecord, CommissionEntry } from "./types";
 import { storage } from "./utils/storage";
 import { computeCurrentEarnings, toMins, fmt12, fmt12Full, isSystem12Hour } from "./utils/calculations";
@@ -15,7 +15,7 @@ import AttendanceCalendar from "./components/AttendanceCalendar";
 import SurvivalAssistant from "./components/SurvivalAssistant";
 
 // Icons
-import { Compass, User, Settings, Sparkles, Share2, Award, ArrowUpRight, ChevronRight, HelpCircle } from "lucide-react";
+import { Compass, User, Settings, Sparkles, Share2, Award, ArrowUpRight, ChevronRight, HelpCircle, Home, Coffee } from "lucide-react";
 
 // LocalStorage Keys
 const SETTINGS_KEY = "realpay_settings_v3";
@@ -81,6 +81,378 @@ export default function App() {
     }
     return "home";
   });
+
+  // Tab indicator drag/swipe states
+  const [isDraggingTab, setIsDraggingTab] = useState(false);
+  const [dragIndexPos, setDragIndexPos] = useState(() => {
+    if (typeof window !== "undefined") {
+      const hash = window.location.hash.replace("#", "");
+      const baseHash = hash.split("/")[0];
+      if (baseHash === "slack") return 1;
+      if (baseHash === "settings") return 2;
+    }
+    return 0;
+  });
+  const tabInnerRef = useRef<HTMLDivElement>(null);
+
+  // Smooth visual position tracker following ColorOS 16 Fluid Aquamorphic specifications
+  const getInitialTabIndex = () => {
+    if (typeof window !== "undefined") {
+      const hash = window.location.hash.replace("#", "");
+      const baseHash = hash.split("/")[0];
+      if (baseHash === "slack") return 1;
+      if (baseHash === "settings") return 2;
+    }
+    return 0;
+  };
+
+  const initialIdx = getInitialTabIndex();
+
+  const [isTabVisible, setIsTabVisible] = useState(true);
+
+  const [indicatorStyle, setIndicatorStyle] = useState({
+    left: `${initialIdx * 33.3333}%`,
+    width: "33.3333%",
+    translateX: 0,
+    scaleX: 1,
+    transformOrigin: "center",
+  });
+
+  const physicsRef = useRef({
+    pos: initialIdx,
+    vel: 0,
+    shake: 0,
+    shakeVel: 0,
+    tabY: 0,
+    tabYVel: 0,
+    targetTabY: 0,
+    lastTime: Date.now(),
+  });
+
+  const dragGestureRef = useRef<{
+    startX: number;
+    startDragIndexPos: number;
+    hasDragStarted: boolean;
+  } | null>(null);
+
+  // Synchronize dynamic values using pristine high-performance references
+  const activeTabRef = useRef(activeTab);
+  const isDraggingTabRef = useRef(isDraggingTab);
+  const dragIndexPosRef = useRef(dragIndexPos);
+  const isTabVisibleRef = useRef(isTabVisible);
+
+  activeTabRef.current = activeTab;
+  isDraggingTabRef.current = isDraggingTab;
+  dragIndexPosRef.current = dragIndexPos;
+  isTabVisibleRef.current = isTabVisible;
+
+  // Synchronize drag index position when activeTab changes (but not during drag)
+  useEffect(() => {
+    if (!isDraggingTab) {
+      const tabToIndex = { home: 0, slack: 1, settings: 2 };
+      setDragIndexPos(tabToIndex[activeTab]);
+    }
+  }, [activeTab, isDraggingTab]);
+
+  useEffect(() => {
+    let animationFrameId: number;
+
+    const updatePhysics = () => {
+      const now = Date.now();
+      let dt = (now - physicsRef.current.lastTime) / 1000;
+      physicsRef.current.lastTime = now;
+      if (dt > 0.05) dt = 0.016; // default fallback if frame rate drops
+
+      const tabToIndex = { home: 0, slack: 1, settings: 2 };
+      const target = isDraggingTabRef.current ? dragIndexPosRef.current : tabToIndex[activeTabRef.current];
+
+      // Use multiple sub-steps for perfect physics integration stability and silky precision at any refresh rate
+      const steps = 4;
+      const dtSub = dt / steps;
+
+      for (let step = 0; step < steps; step++) {
+        let pos = physicsRef.current.pos;
+        let vel = physicsRef.current.vel;
+
+        if (isDraggingTabRef.current) {
+          // Absolute 1:1 instantaneous tracking under drag for maximum responsiveness and zero latency finger-following
+          const prevPos = physicsRef.current.pos;
+          physicsRef.current.pos = target;
+          if (dtSub > 0) {
+            physicsRef.current.vel = (target - prevPos) / dtSub;
+          } else {
+            physicsRef.current.vel = 0;
+          }
+        } else {
+          // Highly organic spring constants creating a clear, crisp spring bounce back (回弹)
+          let stiffness = 250; // increased stiffness for ultra-responsive snaps
+          let damping = 15.5;  // precisely tuned underdamping for a perfect elastic rebound
+
+          const force = (target - pos) * stiffness - vel * damping;
+          physicsRef.current.vel += force * dtSub;
+          physicsRef.current.pos += physicsRef.current.vel * dtSub;
+        }
+
+        // Update the lateral shake vibration spring
+        const shakeStiffness = 850; // high frequency vibration
+        const shakeDamping = 18;    // snappy, short decay
+        const shakeForce = (0 - physicsRef.current.shake) * shakeStiffness - physicsRef.current.shakeVel * shakeDamping;
+        physicsRef.current.shakeVel += shakeForce * dtSub;
+        physicsRef.current.shake += physicsRef.current.shakeVel * dtSub;
+
+        // Update the tab-nav vertical scroll tracking spring (跟着用户的手指，丝滑弹性)
+        const tabYStiffness = 320;
+        const tabYDamping = 25;
+        const tabYForce = (physicsRef.current.targetTabY - physicsRef.current.tabY) * tabYStiffness - physicsRef.current.tabYVel * tabYDamping;
+        physicsRef.current.tabYVel += tabYForce * dtSub;
+        physicsRef.current.tabY += physicsRef.current.tabYVel * dtSub;
+        physicsRef.current.tabY = Math.max(0, Math.min(120, physicsRef.current.tabY));
+      }
+
+      // Safe outer bounds constraint (slight overshoot capacity at edges)
+      const currentPos = Math.max(-0.45, Math.min(2.45, physicsRef.current.pos));
+
+      // Compute displacement relative to the capsule
+      const shake = physicsRef.current.shake;
+
+      // Extract overflow overshoot for elastic stretching and squishing feedback
+      let overshoot = 0;
+      if (physicsRef.current.pos < 0) {
+        overshoot = physicsRef.current.pos;
+      } else if (physicsRef.current.pos > 2) {
+        overshoot = physicsRef.current.pos - 2;
+      }
+
+      // Calculate squish effect for the capsule (compresses width elastically against boundaries)
+      let scaleX = 1;
+      let transformOrigin = "center";
+      if (overshoot < 0) {
+        scaleX = Math.max(0.65, 1 + overshoot * 0.7);
+        transformOrigin = "left center";
+      } else if (overshoot > 0) {
+        scaleX = Math.max(0.65, 1 - overshoot * 0.7);
+        transformOrigin = "right center";
+      }
+
+      setIndicatorStyle({
+        left: `${currentPos * 33.3333}%`,
+        width: "33.3333%",
+        translateX: shake * 12, // subtle 12px shift multiplier
+        scaleX: scaleX,
+        transformOrigin: transformOrigin,
+      });
+
+      // Directly update the inline styling of the `<nav>` parent element of `tabInnerRef` to run at native rates (e.g. 120hz) and prevent heavy react renders
+      if (tabInnerRef.current && tabInnerRef.current.parentElement) {
+        const parent = tabInnerRef.current.parentElement;
+        const currentTabY = physicsRef.current.tabY;
+
+        let targetXShift = 0;
+        let skewX = 0;
+        let scaleXNav = 1;
+        if (physicsRef.current.pos < 0) {
+          const over = physicsRef.current.pos;
+          targetXShift = over * 28; // elastic capsule pulls parent with a sub-pixel springy bias
+          skewX = over * 5;        // dynamic shear distortion
+          scaleXNav = 1 - over * 0.035; // structural elongating tension
+        } else if (physicsRef.current.pos > 2) {
+          const over = physicsRef.current.pos - 2;
+          targetXShift = over * 28;
+          skewX = over * 5;
+          scaleXNav = 1 + over * 0.035;
+        }
+
+        parent.style.transition = "none";
+        parent.style.transform = `translateX(calc(-50% + ${targetXShift}px)) translateY(${currentTabY}px) scaleX(${scaleXNav}) skewX(${skewX}deg) scale(${1 - (currentTabY / 120) * 0.05})`;
+        parent.style.opacity = String(Math.max(0, 1 - currentTabY / 110));
+
+        // Determine visibility for pointer-events to prevent clicks when fully hidden
+        const isCurrentlyVisible = currentTabY < 80;
+        if (isCurrentlyVisible) {
+          parent.style.pointerEvents = "auto";
+        } else {
+          parent.style.pointerEvents = "none";
+        }
+
+        // Keep React state in sync without triggering heavy re-renders
+        if (isCurrentlyVisible !== isTabVisibleRef.current) {
+          setIsTabVisible(isCurrentlyVisible);
+        }
+      }
+
+      animationFrameId = requestAnimationFrame(updatePhysics);
+    };
+
+    physicsRef.current.lastTime = Date.now();
+    animationFrameId = requestAnimationFrame(updatePhysics);
+    return () => cancelAnimationFrame(animationFrameId);
+  }, []);
+
+  const handleTabClick = (tab: "home" | "slack" | "settings") => {
+    if (activeTab === tab) {
+      // Tactile lateral vibrating wiggle when already on this tab with zero latency displacement
+      physicsRef.current.shake = 0.5;
+      physicsRef.current.shakeVel = -40.0; // high initial velocity for snappy oscillation
+    } else {
+      setActiveTab(tab);
+      window.location.hash = tab;
+      setShowShareModal(false);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  };
+
+  const handleTabTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (!tabInnerRef.current) return;
+    const touchX = e.touches[0].clientX;
+    const tabToIndex = { home: 0, slack: 1, settings: 2 };
+    const initialDragIndexPos = tabToIndex[activeTab];
+    dragGestureRef.current = {
+      startX: touchX,
+      startDragIndexPos: initialDragIndexPos,
+      hasDragStarted: false,
+    };
+  };
+
+  const handleTabMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (e.button !== 0) return;
+    if (!tabInnerRef.current) return;
+    const touchX = e.clientX;
+    const tabToIndex = { home: 0, slack: 1, settings: 2 };
+    const initialDragIndexPos = tabToIndex[activeTab];
+    dragGestureRef.current = {
+      startX: touchX,
+      startDragIndexPos: initialDragIndexPos,
+      hasDragStarted: false,
+    };
+  };
+
+  useEffect(() => {
+    const onMove = (e: MouseEvent | TouchEvent) => {
+      if (!dragGestureRef.current) return;
+
+      let clientX = 0;
+      if ("touches" in e) {
+        if (e.touches.length === 0) return;
+        clientX = e.touches[0].clientX;
+      } else {
+        clientX = e.clientX;
+      }
+
+      const gesture = dragGestureRef.current;
+      const deltaX = clientX - gesture.startX;
+
+      // Start actual dragging only after crossing a 10px threshold
+      if (!gesture.hasDragStarted) {
+        if (Math.abs(deltaX) > 10) {
+          gesture.hasDragStarted = true;
+          setIsDraggingTab(true);
+        } else {
+          return;
+        }
+      }
+
+      if (!tabInnerRef.current) return;
+      const rect = tabInnerRef.current.getBoundingClientRect();
+      const tabWidth = rect.width;
+
+      // 1 index unit = 1/3 of tab bar width (since there are 3 tabs)
+      const indexDelta = (deltaX * 3) / tabWidth;
+      const rawTargetIndex = gesture.startDragIndexPos + indexDelta;
+
+      let targetIndex = rawTargetIndex;
+      // High precision dynamic rubber-banding for elegant visual feedback when pulling past boundaries
+      if (rawTargetIndex < 0) {
+        const overflow = -rawTargetIndex;
+        targetIndex = - (overflow / (1 + overflow * 1.6)) * 0.45; // smooth limit at -0.28
+      } else if (rawTargetIndex > 2) {
+        const overflow = rawTargetIndex - 2;
+        targetIndex = 2 + (overflow / (1 + overflow * 1.6)) * 0.45; // smooth limit at 2.28
+      }
+
+      setDragIndexPos(targetIndex);
+
+      const closedTabIdx = Math.max(0, Math.min(2, Math.round(targetIndex)));
+      const tabs: Array<"home" | "slack" | "settings"> = ["home", "slack", "settings"];
+      if (tabs[closedTabIdx] && activeTab !== tabs[closedTabIdx]) {
+        setActiveTab(tabs[closedTabIdx]);
+        window.location.hash = tabs[closedTabIdx];
+      }
+    };
+
+    const onEnd = () => {
+      if (!dragGestureRef.current) return;
+      const gesture = dragGestureRef.current;
+      dragGestureRef.current = null;
+
+      if (gesture.hasDragStarted) {
+        setIsDraggingTab(false);
+        setDragIndexPos((currPos) => {
+          const finalIndex = Math.max(0, Math.min(2, Math.round(currPos)));
+          const tabs: Array<"home" | "slack" | "settings"> = ["home", "slack", "settings"];
+          setActiveTab(tabs[finalIndex]);
+          window.location.hash = tabs[finalIndex];
+          return finalIndex;
+        });
+      }
+    };
+
+    window.addEventListener("mousemove", onMove, { passive: true });
+    window.addEventListener("mouseup", onEnd);
+    window.addEventListener("touchmove", onMove, { passive: true });
+    window.addEventListener("touchend", onEnd);
+
+    return () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onEnd);
+      window.removeEventListener("touchmove", onMove);
+      window.removeEventListener("touchend", onEnd);
+    };
+  }, [activeTab]);
+
+  // Page swipe track (for side-to-side content transitions on mobile touch devices)
+  const pageTouchStart = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+
+  const handlePageTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    pageTouchStart.current = {
+      x: e.touches[0].clientX,
+      y: e.touches[0].clientY,
+    };
+  };
+
+  const handlePageTouchEnd = (e: React.TouchEvent<HTMLDivElement>) => {
+    const start = pageTouchStart.current;
+    const endX = e.changedTouches[0].clientX;
+    const endY = e.changedTouches[0].clientY;
+
+    const deltaX = endX - start.x;
+    const deltaY = endY - start.y;
+
+    // Recognize horizontal swipe with enough velocity, ignore scroll patterns (Y delta must be small)
+    if (Math.abs(deltaX) > 75 && Math.abs(deltaY) < 60) {
+      // Don't switch if dragging inside calendar day cells or other maps/scroll areas
+      const target = e.target as HTMLElement;
+      if (target && (target.closest('.attendance-calendar') || target.closest('.weather-widget-scroll') || target.closest('input') || target.closest('textarea'))) {
+        return;
+      }
+      const tabs: Array<"home" | "slack" | "settings"> = ["home", "slack", "settings"];
+      const currentIdx = tabs.indexOf(activeTab);
+      if (deltaX > 0) {
+        if (currentIdx > 0) {
+          const prevTab = tabs[currentIdx - 1];
+          setActiveTab(prevTab);
+          window.location.hash = prevTab;
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        }
+      } else {
+        if (currentIdx < 2) {
+          const nextTab = tabs[currentIdx + 1];
+          setActiveTab(nextTab);
+          window.location.hash = nextTab;
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        }
+      }
+    }
+  };
 
   // Keep state in sync with URL Hash back/forward navigation
   useEffect(() => {
@@ -185,6 +557,58 @@ export default function App() {
   });
 
   const [isPopping, setIsPopping] = useState(false);
+
+  // Scroll tab visibility logic
+  useEffect(() => {
+    let lastScrollY = window.scrollY;
+    let snapTimeoutId: any = null;
+
+    const handleScroll = () => {
+      if (snapTimeoutId) {
+        clearTimeout(snapTimeoutId);
+      }
+
+      const currentScrollY = window.scrollY;
+      const delta = currentScrollY - lastScrollY;
+
+      // Let the navigation bar move smoothly following the scroll
+      if (delta > 0 && currentScrollY > 60) {
+        // Scrolling down: push the targetTabY down
+        physicsRef.current.targetTabY = Math.min(120, physicsRef.current.targetTabY + delta * 1.5);
+      } else if (delta < 0) {
+        // Scrolling up: pull the targetTabY up
+        physicsRef.current.targetTabY = Math.max(0, physicsRef.current.targetTabY + delta * 1.5);
+      }
+
+      // Always show capsule if near the top or near the bottom of the page
+      const docHeight = document.documentElement.scrollHeight;
+      const winHeight = window.innerHeight;
+      if (currentScrollY <= 15 || (docHeight - (currentScrollY + winHeight) < 80)) {
+        physicsRef.current.targetTabY = 0;
+      }
+
+      lastScrollY = currentScrollY;
+
+      // When the user stops scrolling, snap perfectly to either hidden or visible based on closest bounds
+      snapTimeoutId = setTimeout(() => {
+        if (physicsRef.current.targetTabY > 0 && physicsRef.current.targetTabY < 120) {
+          if (physicsRef.current.targetTabY > 50) {
+            physicsRef.current.targetTabY = 120;
+          } else {
+            physicsRef.current.targetTabY = 0;
+          }
+        }
+      }, 200);
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => {
+      if (snapTimeoutId) {
+        clearTimeout(snapTimeoutId);
+      }
+      window.removeEventListener("scroll", handleScroll);
+    };
+  }, []);
 
   // Push state when Share Modal is opened to capture the hardware back button
   useEffect(() => {
@@ -940,7 +1364,11 @@ export default function App() {
   };
 
   return (
-    <div className="w-full max-w-[520px] mx-auto min-h-screen flex flex-col relative bg-[#0f0f0f] text-[#f0ede8] font-sans">
+    <div
+      className="w-full max-w-[520px] mx-auto min-h-screen flex flex-col relative bg-[#0f0f0f] text-[#f0ede8] font-sans"
+      onTouchStart={handlePageTouchStart}
+      onTouchEnd={handlePageTouchEnd}
+    >
 
       {/* Auto Punch Floating Toast Notification */}
       {autoPunchToast && (
@@ -967,267 +1395,261 @@ export default function App() {
       <div className="w-full px-5 pb-2 z-10 safe-padding-top">
 
         {/* ── Tab: HOME ── */}
-        {activeTab === "home" && (
-          <div className="page space-y-4">
+        <div className={`page space-y-4 ${activeTab === "home" ? "" : "hidden"}`}>
 
-            {/* Header / Logo bar */}
-            <div className="topbar select-none">
-              <div className="logo">
-                REAL<span>PAY</span>
-              </div>
-              <div className="badge">
-                <span className={`dot ${(!slacking && metrics.statusLabel === "午休中") ? "lunch-break" :
-                    (!slacking && metrics.statusLabel === "等上班") ? "wait-work" :
-                      slacking ? "working" :
-                        metrics.isWorking ? "working" :
-                          metrics.isOT ? "ot" :
-                            isHoliday ? "done" : "off"
-                  }`} style={
-                    slacking
-                      ? { backgroundColor: "#a78bfa" }
-                      : undefined
-                  } />
-                <span>{slacking ? "摸鱼中" : metrics.statusLabel}</span>
-              </div>
+          {/* Header / Logo bar */}
+          <div className="topbar select-none">
+            <div className="logo">
+              REAL<span>PAY</span>
+            </div>
+            <div className="badge">
+              <span className={`dot ${(!slacking && metrics.statusLabel === "午休中") ? "lunch-break" :
+                  (!slacking && metrics.statusLabel === "等上班") ? "wait-work" :
+                    slacking ? "working" :
+                      metrics.isWorking ? "working" :
+                        metrics.isOT ? "ot" :
+                          isHoliday ? "done" : "off"
+                }`} style={
+                  slacking
+                    ? { backgroundColor: "#a78bfa" }
+                    : undefined
+                } />
+              <span>{slacking ? "摸鱼中" : metrics.statusLabel}</span>
+            </div>
+          </div>
+
+          {/* Public Holiday Banner */}
+          {isHoliday && (
+            <div className="holiday-banner" id="holiday-banner">
+              <span className="hb-msg">🎉 今天公假，好好休息！</span>
+              <button className="hb-clear" onClick={handleToggleHoliday}>取消</button>
+            </div>
+          )}
+
+          {/* Attendance Punch component */}
+          <PunchController
+            punchInTime={punchInTime}
+            punchOutTime={punchOutTime}
+            onPunchIn={handlePunchIn}
+            onPunchOut={handlePunchOut}
+            onClearPunch={handleClearPunch}
+            onModifyPunch={handleModifyPunch}
+            isWorkdayToday={isWorkdayToday}
+            startTime={settings.startTime}
+            endTime={settings.endTime}
+          />
+
+          {/* Dynamic Earnings Hero Card - Restored perfectly to original design */}
+          <div
+            className={`hero ${slacking ? "slacking" : ""} ${isHoliday ? "holiday" : ""} ${metrics.isOT ? "overtime" : ""}`}
+            onClick={() => {
+              navigator.clipboard.writeText(`${settings.currency || "RM"} ${todayTotalEarned.toFixed(2)}`);
+              const toast = document.getElementById("copy-toast");
+              if (toast) {
+                toast.classList.add("show");
+                setTimeout(() => toast.classList.remove("show"), 1500);
+              }
+            }}
+          >
+            <div className="hero-glow" />
+            <div className="copy-toast" id="copy-toast">已复制 ✓</div>
+            <div className="hero-label">今日已赚 · 点击复制</div>
+            <div className="hero-amount">
+              <span className="hero-rm">{settings.currency || "RM"}</span>
+              <span className={`hero-num ${slacking ? "slacking" :
+                  metrics.isOT ? "overtime" :
+                    isHoliday ? "holiday" : "live"
+                } ${isPopping ? "pop" : ""}`}>
+                {todayTotalEarned.toFixed(2)}
+              </span>
+            </div>
+            <div className="hero-date">
+              {now.getMonth() + 1}月{now.getDate()}日 · {["星期日", "星期一", "星期二", "星期三", "星期四", "星期五", "星期六"][now.getDay()]}
             </div>
 
-            {/* Public Holiday Banner */}
-            {isHoliday && (
-              <div className="holiday-banner" id="holiday-banner">
-                <span className="hb-msg">🎉 今天公假，好好休息！</span>
-                <button className="hb-clear" onClick={handleToggleHoliday}>取消</button>
-              </div>
-            )}
-
-            {/* Attendance Punch component */}
-            <PunchController
-              punchInTime={punchInTime}
-              punchOutTime={punchOutTime}
-              onPunchIn={handlePunchIn}
-              onPunchOut={handlePunchOut}
-              onClearPunch={handleClearPunch}
-              onModifyPunch={handleModifyPunch}
-              isWorkdayToday={isWorkdayToday}
-              startTime={settings.startTime}
-              endTime={settings.endTime}
-            />
-
-            {/* Dynamic Earnings Hero Card - Restored perfectly to original design */}
-            <div
-              className={`hero ${slacking ? "slacking" : ""} ${isHoliday ? "holiday" : ""} ${metrics.isOT ? "overtime" : ""}`}
-              onClick={() => {
-                navigator.clipboard.writeText(`${settings.currency || "RM"} ${todayTotalEarned.toFixed(2)}`);
-                const toast = document.getElementById("copy-toast");
-                if (toast) {
-                  toast.classList.add("show");
-                  setTimeout(() => toast.classList.remove("show"), 1500);
-                }
-              }}
-            >
-              <div className="hero-glow" />
-              <div className="copy-toast" id="copy-toast">已复制 ✓</div>
-              <div className="hero-label">今日已赚 · 点击复制</div>
-              <div className="hero-amount">
-                <span className="hero-rm">{settings.currency || "RM"}</span>
-                <span className={`hero-num ${slacking ? "slacking" :
-                    metrics.isOT ? "overtime" :
-                      isHoliday ? "holiday" : "live"
-                  } ${isPopping ? "pop" : ""}`}>
-                  {todayTotalEarned.toFixed(2)}
+            {/* Progress bar info for office hours */}
+            <div className="prog-wrap">
+              <div className="prog-meta">
+                <span>{punchInTime ? formatAmPm(punchInTime, settings.startTime) : formatAmPm(null, settings.startTime)}</span>
+                <span className="prog-pct">
+                  {metrics.isOT ? "加班中" : `${metrics.progressPct.toFixed(0)}%`}
                 </span>
+                <span>{punchOutTime ? formatAmPm(punchOutTime, settings.endTime) : formatAmPm(null, settings.endTime)}</span>
               </div>
-              <div className="hero-date">
-                {now.getMonth() + 1}月{now.getDate()}日 · {["星期日", "星期一", "星期二", "星期三", "星期四", "星期五", "星期六"][now.getDay()]}
-              </div>
-
-              {/* Progress bar info for office hours */}
-              <div className="prog-wrap">
-                <div className="prog-meta">
-                  <span>{punchInTime ? formatAmPm(punchInTime, settings.startTime) : formatAmPm(null, settings.startTime)}</span>
-                  <span className="prog-pct">
-                    {metrics.isOT ? "加班中" : `${metrics.progressPct.toFixed(0)}%`}
-                  </span>
-                  <span>{punchOutTime ? formatAmPm(punchOutTime, settings.endTime) : formatAmPm(null, settings.endTime)}</span>
-                </div>
-                <div className="prog-track">
-                  <div
-                    className="prog-fill"
-                    style={{ width: `${metrics.progressWidth}%` }}
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Overtime Banner Details showing when OT is active */}
-            {metrics.isOT && (
-              <div className="ot-banner" id="ot-banner">
-                <div className="ot-left">
-                  <span className="ot-tag">⏰ 加班中</span>
-                  <span className="ot-val">{settings.currency || "RM"} {metrics.earnedOT.toFixed(2)}</span>
-                </div>
-                <div className="ot-right">
-                  <div className="ot-time">
-                    {String(Math.floor(metrics.otSecs / 3600)).padStart(2, "0")}:
-                    {String(Math.floor((metrics.otSecs % 3600) / 60)).padStart(2, "0")}:
-                    {String(metrics.otSecs % 60).padStart(2, "0")}
-                  </div>
-                  <div className="ot-rate">
-                    {settings.overtimeRate}x · {settings.currency || "RM"} {payPerHour.toFixed(2)}/hr
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Overtime subtotals even after lower clock-out! Satisfies: "加班结束后的小计" */}
-            {punchOutTime && metrics.earnedOT > 0 && (
-              <div className="today-full select-none">
-                <span className="tf-lbl">今日奋斗所得 (底薪 + 加班)</span>
-                <span className="tf-val">{settings.currency || "RM"} {todayTotalEarned.toFixed(2)}</span>
-              </div>
-            )}
-
-            {/* Commission Manager Component */}
-            {settings.enableCommission && (
-              <CommissionManager
-                settings={settings}
-                commissions={commissions}
-                todayStr={todayStr}
-                onAddCommission={handleAddCommission}
-                onUpdateCommission={handleUpdateCommission}
-                onDeleteCommission={handleDeleteCommission}
-              />
-            )}
-
-            {/* Local cached weather module */}
-            <WeatherWidget settings={settings} />
-
-            {/* Monthly Progress tracking */}
-            <div className="monthly-prog select-none">
-              <div className="mp-head">
-                <span className="mp-label">本月进度</span>
-                <span className="mp-pct">{mProgress.progressPct.toFixed(0)}%</span>
-              </div>
-              <div className="mp-track">
+              <div className="prog-track">
                 <div
-                  className="mp-fill"
-                  style={{ width: `${mProgress.progressPct}%` }}
+                  className="prog-fill"
+                  style={{ width: `${metrics.progressWidth}%` }}
                 />
               </div>
-              <div className="mp-sub">
-                <span>第 {mProgress.workDaysPassed} / {settings.workDays} 工作日</span>
-                <span className="text-right">
-                  本月预计提现: <span className="mp-earned">{settings.currency || "RM"} {mProgress.estimatedBaseEarned.toFixed(2)}</span>
-                  {mProgress.monthlyCommissionTotal > 0 && (
-                    <span className="block text-[9px] text-[#818cf8] mt-0.5">
-                      (含提成: {settings.currency || "RM"} {mProgress.monthlyCommissionTotal.toFixed(2)})
-                    </span>
-                  )}
-                </span>
-              </div>
             </div>
-
-            {/* Perpetual Interactive Attendance & Patching Calendar */}
-            <AttendanceCalendar
-              settings={settings}
-              allPunches={allPunches}
-              onUpdatePunch={handleUpdateAllPunches}
-              now={now}
-            />
-
-            {/* Mini rates indicator */}
-            <div className="rates select-none">
-              <div className="rate">
-                <div className="rate-v">{payPerSec.toFixed(3)}</div>
-                <div className="rate-l">每秒 {settings.currency || "RM"}</div>
-              </div>
-              <div className="rate">
-                <div className="rate-v">{payPerMin.toFixed(2)}</div>
-                <div className="rate-l">每分钟</div>
-              </div>
-              <div className="rate">
-                <div className="rate-v">{payPerHour.toFixed(2)}</div>
-                <div className="rate-l">每小时</div>
-              </div>
-            </div>
-
-            {/* General daily earned overview and status clocks */}
-
-            <div className="status-bar select-none">
-              <span className="status-msg">{getStatusMsg()}</span>
-              <span className="status-clock">{fmt12Full(now)}</span>
-            </div>
-
-            {/* Office Survival Assistant: Lunch Decider & Coffee Intake Trackers */}
-            <SurvivalAssistant />
-
-            {/* Floating multiple Savings goals */}
-            <SavingsManager
-              settings={settings}
-              goals={savingsGoals}
-              dailySal={dailySal}
-              onAddGoal={handleAddGoal}
-              onUpdateGoal={handleUpdateGoal}
-              onDeleteGoal={handleDeleteGoal}
-            />
-
-            {/* Quick status timeline and share triggers */}
-            <div className="share-row">
-              <button
-                onClick={() => {
-                  window.location.hash = activeTab + "/share";
-                }}
-                className="share-btn"
-              >
-                <span>📊 生成分账战报</span>
-              </button>
-
-              <button
-                onClick={handleToggleHoliday}
-                className={`holiday-btn ${isHoliday ? "active" : ""}`}
-              >
-                <span>🎉 设定今天公假</span>
-              </button>
-            </div>
-
           </div>
-        )}
+
+          {/* Overtime Banner Details showing when OT is active */}
+          {metrics.isOT && (
+            <div className="ot-banner" id="ot-banner">
+              <div className="ot-left">
+                <span className="ot-tag">⏰ 加班中</span>
+                <span className="ot-val">{settings.currency || "RM"} {metrics.earnedOT.toFixed(2)}</span>
+              </div>
+              <div className="ot-right">
+                <div className="ot-time">
+                  {String(Math.floor(metrics.otSecs / 3600)).padStart(2, "0")}:
+                  {String(Math.floor((metrics.otSecs % 3600) / 60)).padStart(2, "0")}:
+                  {String(metrics.otSecs % 60).padStart(2, "0")}
+                </div>
+                <div className="ot-rate">
+                  {settings.overtimeRate}x · {settings.currency || "RM"} {payPerHour.toFixed(2)}/hr
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Overtime subtotals even after lower clock-out! Satisfies: "加班结束后的小计" */}
+          {punchOutTime && metrics.earnedOT > 0 && (
+            <div className="today-full select-none">
+              <span className="tf-lbl">今日奋斗所得 (底薪 + 加班)</span>
+              <span className="tf-val">{settings.currency || "RM"} {todayTotalEarned.toFixed(2)}</span>
+            </div>
+          )}
+
+          {/* Commission Manager Component */}
+          {settings.enableCommission && (
+            <CommissionManager
+              settings={settings}
+              commissions={commissions}
+              todayStr={todayStr}
+              onAddCommission={handleAddCommission}
+              onUpdateCommission={handleUpdateCommission}
+              onDeleteCommission={handleDeleteCommission}
+            />
+          )}
+
+          {/* Local cached weather module */}
+          <WeatherWidget settings={settings} />
+
+          {/* Monthly Progress tracking */}
+          <div className="monthly-prog select-none">
+            <div className="mp-head">
+              <span className="mp-label">本月进度</span>
+              <span className="mp-pct">{mProgress.progressPct.toFixed(0)}%</span>
+            </div>
+            <div className="mp-track">
+              <div
+                className="mp-fill"
+                style={{ width: `${mProgress.progressPct}%` }}
+              />
+            </div>
+            <div className="mp-sub">
+              <span>第 {mProgress.workDaysPassed} / {settings.workDays} 工作日</span>
+              <span className="text-right">
+                本月预计提现: <span className="mp-earned">{settings.currency || "RM"} {mProgress.estimatedBaseEarned.toFixed(2)}</span>
+                {mProgress.monthlyCommissionTotal > 0 && (
+                  <span className="block text-[9px] text-[#818cf8] mt-0.5">
+                    (含提成: {settings.currency || "RM"} {mProgress.monthlyCommissionTotal.toFixed(2)})
+                  </span>
+                )}
+              </span>
+            </div>
+          </div>
+
+          {/* Perpetual Interactive Attendance & Patching Calendar */}
+          <AttendanceCalendar
+            settings={settings}
+            allPunches={allPunches}
+            onUpdatePunch={handleUpdateAllPunches}
+            now={now}
+          />
+
+          {/* Mini rates indicator */}
+          <div className="rates select-none">
+            <div className="rate">
+              <div className="rate-v">{payPerSec.toFixed(3)}</div>
+              <div className="rate-l">每秒 {settings.currency || "RM"}</div>
+            </div>
+            <div className="rate">
+              <div className="rate-v">{payPerMin.toFixed(2)}</div>
+              <div className="rate-l">每分钟</div>
+            </div>
+            <div className="rate">
+              <div className="rate-v">{payPerHour.toFixed(2)}</div>
+              <div className="rate-l">每小时</div>
+            </div>
+          </div>
+
+          {/* General daily earned overview and status clocks */}
+
+          <div className="status-bar select-none">
+            <span className="status-msg">{getStatusMsg()}</span>
+            <span className="status-clock">{fmt12Full(now)}</span>
+          </div>
+
+          {/* Office Survival Assistant: Lunch Decider & Coffee Intake Trackers */}
+          <SurvivalAssistant />
+
+          {/* Floating multiple Savings goals */}
+          <SavingsManager
+            settings={settings}
+            goals={savingsGoals}
+            dailySal={dailySal}
+            onAddGoal={handleAddGoal}
+            onUpdateGoal={handleUpdateGoal}
+            onDeleteGoal={handleDeleteGoal}
+          />
+
+          {/* Quick status timeline and share triggers */}
+          <div className="share-row">
+            <button
+              onClick={() => {
+                window.location.hash = activeTab + "/share";
+              }}
+              className="share-btn"
+            >
+              <span>📊 生成分账战报</span>
+            </button>
+
+            <button
+              onClick={handleToggleHoliday}
+              className={`holiday-btn ${isHoliday ? "active" : ""}`}
+            >
+              <span>🎉 设定今天公假</span>
+            </button>
+          </div>
+
+        </div>
 
 
         {/* ── Tab: SLACKING ── */}
-        {activeTab === "slack" && (
-          <div className="page active space-y-4">
-            <SlackingManager
-              slacking={slacking}
-              slackStart={slackStart}
-              slackSessions={slackSessions}
-              slackGoalMins={slackGoalMins}
-              perMin={payPerMin}
-              onToggleSlack={handleToggleSlack}
-              onSaveSlackGoal={handleSaveSlackGoal}
-              onDeleteSession={handleDeleteSession}
-              weeklyData={weeklyData}
-              settings={settings}
-              now={now}
-              isHoliday={isHoliday}
-              punchInTime={punchInTime}
-              punchOutTime={punchOutTime}
-            />
-          </div>
-        )}
+        <div className={`page active space-y-4 ${activeTab === "slack" ? "" : "hidden"}`}>
+          <SlackingManager
+            slacking={slacking}
+            slackStart={slackStart}
+            slackSessions={slackSessions}
+            slackGoalMins={slackGoalMins}
+            perMin={payPerMin}
+            onToggleSlack={handleToggleSlack}
+            onSaveSlackGoal={handleSaveSlackGoal}
+            onDeleteSession={handleDeleteSession}
+            weeklyData={weeklyData}
+            settings={settings}
+            now={now}
+            isHoliday={isHoliday}
+            punchInTime={punchInTime}
+            punchOutTime={punchOutTime}
+          />
+        </div>
 
 
         {/* ── Tab: SETTINGS ── */}
-        {activeTab === "settings" && (
-          <div className="page active">
-            <SettingsManager
-              settings={settings}
-              onUpdateSettings={handleUpdateSettings}
-              history={history}
-              onClearHistory={handleClearHistory}
-              onTriggerAutoPunch={handleTriggerAutoPunch}
-            />
-          </div>
-        )}
+        <div className={`page active ${activeTab === "settings" ? "" : "hidden"}`}>
+          <SettingsManager
+            settings={settings}
+            onUpdateSettings={handleUpdateSettings}
+            history={history}
+            onClearHistory={handleClearHistory}
+            onTriggerAutoPunch={handleTriggerAutoPunch}
+          />
+        </div>
 
       </div>
 
@@ -1257,40 +1679,44 @@ export default function App() {
       </footer>
 
       {/* TAB NAV */}
-      <nav className="tab-nav select-none">
-        <div className="tab-inner">
+      <nav className={`tab-nav select-none ${isTabVisible ? "tab-nav-show" : "tab-nav-hide"}`}>
+        <div
+          className="tab-inner"
+          ref={tabInnerRef}
+          onTouchStart={handleTabTouchStart}
+          onMouseDown={handleTabMouseDown}
+          style={{ cursor: isDraggingTab ? "grabbing" : "grab" }}
+        >
+          <div
+            className="tab-indicator-bg"
+            style={{
+              left: indicatorStyle.left,
+              width: indicatorStyle.width,
+              transform: `translateX(${indicatorStyle.translateX}px) scaleX(${indicatorStyle.scaleX ?? 1})`,
+              transformOrigin: indicatorStyle.transformOrigin ?? "center",
+              transition: "none"
+            }}
+          />
           <button
             className={`tab-btn ${activeTab === "home" ? "active" : ""}`}
-            onClick={() => {
-              setActiveTab("home");
-              window.location.hash = "home";
-              setShowShareModal(false);
-              window.scrollTo({ top: 0, behavior: "smooth" });
-            }}
+            onClick={() => handleTabClick("home")}
           >
-            <span className="tab-icon">💰</span><span>主页</span>
+            <span className="tab-icon">💰</span>
+            <span>主页</span>
           </button>
           <button
             className={`tab-btn ${activeTab === "slack" ? "active" : ""}`}
-            onClick={() => {
-              setActiveTab("slack");
-              window.location.hash = "slack";
-              setShowShareModal(false);
-              window.scrollTo({ top: 0, behavior: "smooth" });
-            }}
+            onClick={() => handleTabClick("slack")}
           >
-            <span className="tab-icon">🐟</span><span>摸鱼</span>
+            <span className="tab-icon">🐟</span>
+            <span>摸鱼</span>
           </button>
           <button
             className={`tab-btn ${activeTab === "settings" ? "active" : ""}`}
-            onClick={() => {
-              setActiveTab("settings");
-              window.location.hash = "settings";
-              setShowShareModal(false);
-              window.scrollTo({ top: 0, behavior: "smooth" });
-            }}
+            onClick={() => handleTabClick("settings")}
           >
-            <span className="tab-icon">⚙️</span><span>设置</span>
+            <span className="tab-icon">⚙️</span>
+            <span>设置</span>
           </button>
         </div>
       </nav>
