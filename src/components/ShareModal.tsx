@@ -1,4 +1,4 @@
-import { Copy, Download, X, Check, Award, ChevronLeft, ChevronRight } from "lucide-react";
+import { Copy, Download, X, Check, Award } from "lucide-react";
 import React, { useState, useEffect } from "react";
 import html2canvas from "html2canvas";
 import { motion } from "motion/react";

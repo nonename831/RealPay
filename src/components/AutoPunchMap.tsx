@@ -28,7 +28,9 @@ interface AutoPunchMapProps {
 }
 
 // ---- Tunable constants (pulled out of the JSX/logic so they're easy to find) ----
-const GEOFENCE_RADIUS_KM = 1.0;
+// Used whenever settings.companyRadius hasn't been set yet (e.g. existing users
+// who configured auto-punch before the radius became user-editable).
+export const DEFAULT_GEOFENCE_RADIUS_KM = 1.0;
 const DISTANCE_MATRIX_MIN_INTERVAL_MS = 30_000; // throttle billed Distance Matrix calls
 const DISTANCE_MATRIX_MIN_MOVE_KM = 0.05; // also skip re-calling if user barely moved
 const MAX_LOG_ENTRIES = 50;
@@ -71,6 +73,8 @@ export default function AutoPunchMap({
 
     const hasValidKey = Boolean(API_KEY) && API_KEY !== "YOUR_API_KEY" && API_KEY.trim() !== "";
 
+    const geofenceRadiusKm = settings.companyRadius ?? DEFAULT_GEOFENCE_RADIUS_KM;
+
     // GPS and status states
     const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
     const [geoError, setGeoError] = useState<string | null>(null);
@@ -83,7 +87,7 @@ export default function AutoPunchMap({
         {
             id: "init",
             time: nowTime(),
-            msg: "通勤提醒监控中（仅本机提醒，非正式考勤），进入 1.0 km 范围时会提示",
+            msg: `通勤提醒监控中（仅本机提醒，非正式考勤），进入 ${geofenceRadiusKm.toFixed(1)} km 范围时会提示`,
             type: "system",
         },
     ]);
@@ -208,7 +212,7 @@ export default function AutoPunchMap({
     useEffect(() => {
         if (!settings.autoPunchEnabled || distance === null) return;
 
-        const isInside = distance <= GEOFENCE_RADIUS_KM;
+        const isInside = distance <= geofenceRadiusKm;
         const currentState = isInside ? "inside" : "outside";
         if (lastStateRef.current === currentState) return;
 
@@ -236,7 +240,7 @@ export default function AutoPunchMap({
         }
 
         lastStateRef.current = currentState;
-    }, [settings.autoPunchEnabled, distance, settings.startTime, settings.endTime, triggerAutoPunchWithLog, pushLog]);
+    }, [settings.autoPunchEnabled, distance, geofenceRadiusKm, settings.startTime, settings.endTime, triggerAutoPunchWithLog, pushLog]);
 
     const saveKey = useCallback(
         (val: string) => {
@@ -321,7 +325,7 @@ export default function AutoPunchMap({
         );
     }
 
-    const isInsideRange = distance !== null && distance <= GEOFENCE_RADIUS_KM;
+    const isInsideRange = distance !== null && distance <= geofenceRadiusKm;
 
     return (
         // 强制英文：地址建议、地图标签统一显示英文，避免混入中文地名
@@ -341,12 +345,30 @@ export default function AutoPunchMap({
                                     }`}
                             />
                         </div>
-                        <div className="min-w-0">
+                        <div className="min-w-0 flex-1">
                             <h3 className="text-sm font-semibold text-neutral-100 truncate">通勤提醒</h3>
                             <p className="text-[11px] text-neutral-500">
-                                {settings.autoPunchEnabled ? `已启用 · ${GEOFENCE_RADIUS_KM.toFixed(1)} km 范围` : "已关闭"}
+                                {settings.autoPunchEnabled ? `已启用 · ${geofenceRadiusKm.toFixed(1)} km 范围` : "已关闭"}
                             </p>
                         </div>
+                        <label className="shrink-0 flex items-center gap-1.5 text-[11px] text-neutral-500" title="触发打卡提醒的围栏半径">
+                            <input
+                                type="number"
+                                min="0.1"
+                                max="10"
+                                step="0.1"
+                                value={geofenceRadiusKm}
+                                onChange={(e) => {
+                                    const val = parseFloat(e.target.value);
+                                    onUpdateSettings({
+                                        ...settings,
+                                        companyRadius: !isNaN(val) && val > 0 ? val : DEFAULT_GEOFENCE_RADIUS_KM,
+                                    });
+                                }}
+                                className="w-14 px-1.5 py-1 bg-neutral-800 border border-neutral-700 rounded-md text-neutral-200 font-mono text-[11px] text-center focus:outline-none focus:border-emerald-500/60"
+                            />
+                            <span>km</span>
+                        </label>
                     </div>
 
                     {/* ---- Status grid: GPS + place ---- */}
@@ -431,7 +453,7 @@ export default function AutoPunchMap({
                                     {isInsideRange ? "范围内" : "范围外"}
                                 </span>
                             </div>
-                            <ProximityBar distance={distance} radius={GEOFENCE_RADIUS_KM} />
+                            <ProximityBar distance={distance} radius={geofenceRadiusKm} />
                         </div>
                     ) : (
                         <div className="flex items-center gap-2 p-3 rounded-xl bg-rose-500/5 border border-rose-500/15 text-rose-400 text-xs">
@@ -476,7 +498,7 @@ export default function AutoPunchMap({
                             userLng={currentLng}
                             companyLat={settings.companyLat}
                             companyLng={settings.companyLng}
-                            effectiveRadius={GEOFENCE_RADIUS_KM}
+                            effectiveRadius={geofenceRadiusKm}
                             isInside={isInsideRange}
                             onSetCompany={handleSetCompanyPosition}
                         />
@@ -545,7 +567,7 @@ export default function AutoPunchMap({
                 <div className="px-4 sm:px-5 py-3 bg-neutral-800/30 border-t border-neutral-800 font-sans">
                     <p className="text-[11px] text-neutral-500 leading-relaxed flex items-start gap-1.5">
                         <Bot className="w-3.5 h-3.5 mt-0.5 shrink-0 text-neutral-500" />
-                        <span>{`仅供个人通勤监控记录，非考勤硬性凭证。定位读取浏览器 GPS定位，进出公司 ${GEOFENCE_RADIUS_KM.toFixed(1)} km 范围内时静默触发打卡。`}</span>
+                        <span>{`仅供个人通勤监控记录，非考勤硬性凭证。定位读取浏览器 GPS定位，进出公司 ${geofenceRadiusKm.toFixed(1)} km 范围内时静默触发打卡。`}</span>
                     </p>
                 </div>
             </div>

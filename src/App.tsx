@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import { AppSettings, SlackSession, SavingsGoal, MonthHistory, PunchRecord, CommissionEntry } from "./types";
 import { storage } from "./utils/storage";
-import { computeCurrentEarnings, toMins, fmt12, fmt12Full, isSystem12Hour } from "./utils/calculations";
+import { computeCurrentEarnings, toMins, fmt12Full, isSystem12Hour } from "./utils/calculations";
 
 // Component imports
 import WeatherWidget from "./components/WeatherWidget";
@@ -13,9 +13,6 @@ import ShareModal from "./components/ShareModal";
 import SettingsManager from "./components/SettingsManager";
 import AttendanceCalendar from "./components/AttendanceCalendar";
 import SurvivalAssistant from "./components/SurvivalAssistant";
-
-// Icons
-import { Compass, User, Settings, Sparkles, Share2, Award, ArrowUpRight, ChevronRight, HelpCircle, Home, Coffee } from "lucide-react";
 
 // LocalStorage Keys
 const SETTINGS_KEY = "realpay_settings_v3";
@@ -155,7 +152,7 @@ export default function App() {
   }, [activeTab, isDraggingTab]);
 
   useEffect(() => {
-    let animationFrameId: number;
+    let animationFrameId: number | null = null;
 
     const updatePhysics = () => {
       const now = Date.now();
@@ -184,9 +181,9 @@ export default function App() {
             physicsRef.current.vel = 0;
           }
         } else {
-          // Highly organic spring constants creating a clear, crisp spring bounce back (回弹)
-          let stiffness = 250; // increased stiffness for ultra-responsive snaps
-          let damping = 15.5;  // precisely tuned underdamping for a perfect elastic rebound
+          // Elegant, silky smooth spring constant creating a gentler, more premium snap-back without aggressive overshoot
+          let stiffness = 150;
+          let damping = 19.5;
 
           const force = (target - pos) * stiffness - vel * damping;
           physicsRef.current.vel += force * dtSub;
@@ -200,9 +197,9 @@ export default function App() {
         physicsRef.current.shakeVel += shakeForce * dtSub;
         physicsRef.current.shake += physicsRef.current.shakeVel * dtSub;
 
-        // Update the tab-nav vertical scroll tracking spring (跟着用户的手指，丝滑弹性)
-        const tabYStiffness = 320;
-        const tabYDamping = 25;
+        // Update the tab-nav vertical scroll tracking spring (跟着用户的手指，丝滑弹性，零延迟)
+        const tabYStiffness = 1800; // 很强刚性，让它极其紧贴手指
+        const tabYDamping = 100;    // 高阻尼，消除悬浮颤动
         const tabYForce = (physicsRef.current.targetTabY - physicsRef.current.tabY) * tabYStiffness - physicsRef.current.tabYVel * tabYDamping;
         physicsRef.current.tabYVel += tabYForce * dtSub;
         physicsRef.current.tabY += physicsRef.current.tabYVel * dtSub;
@@ -283,9 +280,37 @@ export default function App() {
       animationFrameId = requestAnimationFrame(updatePhysics);
     };
 
-    physicsRef.current.lastTime = Date.now();
-    animationFrameId = requestAnimationFrame(updatePhysics);
-    return () => cancelAnimationFrame(animationFrameId);
+    // Pausing on tab-hidden keeps this loop from burning CPU/battery in the background —
+    // this app is a PWA meant to stay open/backgrounded all day. The existing dt clamp
+    // above already handles the large time-jump when resuming after a pause.
+    const startLoop = () => {
+      if (animationFrameId !== null) return;
+      physicsRef.current.lastTime = Date.now();
+      animationFrameId = requestAnimationFrame(updatePhysics);
+    };
+
+    const stopLoop = () => {
+      if (animationFrameId !== null) {
+        cancelAnimationFrame(animationFrameId);
+        animationFrameId = null;
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        stopLoop();
+      } else {
+        startLoop();
+      }
+    };
+
+    if (!document.hidden) startLoop();
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      stopLoop();
+    };
   }, []);
 
   const handleTabClick = (tab: "home" | "slack" | "settings") => {
@@ -561,23 +586,21 @@ export default function App() {
   // Scroll tab visibility logic
   useEffect(() => {
     let lastScrollY = window.scrollY;
-    let snapTimeoutId: any = null;
 
     const handleScroll = () => {
-      if (snapTimeoutId) {
-        clearTimeout(snapTimeoutId);
-      }
-
       const currentScrollY = window.scrollY;
       const delta = currentScrollY - lastScrollY;
 
-      // Let the navigation bar move smoothly following the scroll
+      // Ignore tiny sub-pixel jitters
+      if (Math.abs(delta) < 0.5) return;
+
+      // Directly adjust the tab position based on the scrolling distance
       if (delta > 0 && currentScrollY > 60) {
-        // Scrolling down: push the targetTabY down
-        physicsRef.current.targetTabY = Math.min(120, physicsRef.current.targetTabY + delta * 1.5);
+        // Scrolling down: push the targetTabY down (towards 120, hiding)
+        physicsRef.current.targetTabY = Math.min(120, physicsRef.current.targetTabY + delta);
       } else if (delta < 0) {
-        // Scrolling up: pull the targetTabY up
-        physicsRef.current.targetTabY = Math.max(0, physicsRef.current.targetTabY + delta * 1.5);
+        // Scrolling up: pull the targetTabY up (towards 0, showing)
+        physicsRef.current.targetTabY = Math.max(0, physicsRef.current.targetTabY + delta);
       }
 
       // Always show capsule if near the top or near the bottom of the page
@@ -588,24 +611,10 @@ export default function App() {
       }
 
       lastScrollY = currentScrollY;
-
-      // When the user stops scrolling, snap perfectly to either hidden or visible based on closest bounds
-      snapTimeoutId = setTimeout(() => {
-        if (physicsRef.current.targetTabY > 0 && physicsRef.current.targetTabY < 120) {
-          if (physicsRef.current.targetTabY > 50) {
-            physicsRef.current.targetTabY = 120;
-          } else {
-            physicsRef.current.targetTabY = 0;
-          }
-        }
-      }, 200);
     };
 
     window.addEventListener("scroll", handleScroll, { passive: true });
     return () => {
-      if (snapTimeoutId) {
-        clearTimeout(snapTimeoutId);
-      }
       window.removeEventListener("scroll", handleScroll);
     };
   }, []);
@@ -622,7 +631,7 @@ export default function App() {
   // Handle hardware/browser back button popstate
   useEffect(() => {
     if (typeof window !== "undefined") {
-      const handlePopState = (event: PopStateEvent) => {
+      const handlePopState = () => {
         if (showShareModal) {
           setShowShareModal(false);
           window.location.hash = activeTab;
@@ -879,31 +888,7 @@ export default function App() {
 
     // Auto terminate and save slack session if currently slacking
     if (slacking && slackStart) {
-      const mins = Math.max(0, (time.getTime() - slackStart.getTime()) / 60000);
-      const activeWorkMinutes = Math.max(1, toMins(settings.endTime) - toMins(settings.startTime) - (toMins(settings.lunchEnd) - toMins(settings.lunchStart)));
-      const dailySal = settings.monthlySalary / settings.workDays;
-      const perMin = dailySal / activeWorkMinutes;
-      const earned = mins * perMin;
-
-      const newSession: SlackSession = {
-        id: Math.random().toString(36).substring(2, 9),
-        start: slackStart.toISOString(),
-        end: time.toISOString(),
-        mins,
-        earned,
-      };
-
-      const updatedSessions = [...slackSessions, newSession];
-      setSlackSessions(updatedSessions);
-      storage.set(SLACK_KEY, updatedSessions);
-
-      const activeCumulative = updatedSessions.reduce((sum, s) => sum + s.mins, 0);
-      const newWeekData = { ...weeklyData, [getTodayStr()]: activeCumulative };
-      setWeeklyData(newWeekData);
-      storage.set(WEEK_KEY, newWeekData);
-
-      setSlacking(false);
-      setSlackStart(null);
+      finalizeSlackSession(time);
     }
 
     const rec: PunchRecord = {
@@ -965,31 +950,7 @@ export default function App() {
 
     // Auto terminate active slacking session if we now have an outTime set
     if (computedOutTime && slacking && slackStart) {
-      const mins = Math.max(0, (computedOutTime.getTime() - slackStart.getTime()) / 60000);
-      const activeWorkMinutes = Math.max(1, toMins(settings.endTime) - toMins(settings.startTime) - (toMins(settings.lunchEnd) - toMins(settings.lunchStart)));
-      const dailySal = settings.monthlySalary / settings.workDays;
-      const perMin = dailySal / activeWorkMinutes;
-      const earned = mins * perMin;
-
-      const newSession: SlackSession = {
-        id: Math.random().toString(36).substring(2, 9),
-        start: slackStart.toISOString(),
-        end: computedOutTime.toISOString(),
-        mins,
-        earned,
-      };
-
-      const updatedSessions = [...slackSessions, newSession];
-      setSlackSessions(updatedSessions);
-      storage.set(SLACK_KEY, updatedSessions);
-
-      const activeCumulative = updatedSessions.reduce((sum, s) => sum + s.mins, 0);
-      const newWeekData = { ...weeklyData, [getTodayStr()]: activeCumulative };
-      setWeeklyData(newWeekData);
-      storage.set(WEEK_KEY, newWeekData);
-
-      setSlacking(false);
-      setSlackStart(null);
+      finalizeSlackSession(computedOutTime);
     }
 
     const rec: PunchRecord = {
@@ -1001,6 +962,39 @@ export default function App() {
     setPunchRecord(rec);
     storage.set(PUNCH_KEY, rec);
     syncPunchWithAllPunches(computedInTime ? rec : null);
+  };
+
+  // Finalize the currently running slack session as of `endTime`: records it, updates
+  // weekly totals, and resets the active-slacking state. Shared by punch-out, manual
+  // punch edits, and the slack toggle so the earnings formula lives in one place.
+  const finalizeSlackSession = (endTime: Date) => {
+    if (!slackStart) return;
+
+    const mins = Math.max(0, (endTime.getTime() - slackStart.getTime()) / 60000);
+    const activeWorkMinutes = Math.max(1, toMins(settings.endTime) - toMins(settings.startTime) - (toMins(settings.lunchEnd) - toMins(settings.lunchStart)));
+    const dailySal = settings.monthlySalary / settings.workDays;
+    const perMin = dailySal / activeWorkMinutes;
+    const earned = mins * perMin;
+
+    const newSession: SlackSession = {
+      id: Math.random().toString(36).substring(2, 9),
+      start: slackStart.toISOString(),
+      end: endTime.toISOString(),
+      mins,
+      earned,
+    };
+
+    const updatedSessions = [...slackSessions, newSession];
+    setSlackSessions(updatedSessions);
+    storage.set(SLACK_KEY, updatedSessions);
+
+    const activeCumulative = updatedSessions.reduce((sum, s) => sum + s.mins, 0);
+    const newWeekData = { ...weeklyData, [getTodayStr()]: activeCumulative };
+    setWeeklyData(newWeekData);
+    storage.set(WEEK_KEY, newWeekData);
+
+    setSlacking(false);
+    setSlackStart(null);
   };
 
   // Slacking operations
@@ -1035,35 +1029,10 @@ export default function App() {
         }
       }
       if (slackStart) {
-        const sEnd = new Date();
-        const mins = (sEnd.getTime() - slackStart.getTime()) / 60000;
-
-        // Compute precise earned amount
-        const activeWorkMinutes = Math.max(1, toMins(settings.endTime) - toMins(settings.startTime) - (toMins(settings.lunchEnd) - toMins(settings.lunchStart)));
-        const dailySal = settings.monthlySalary / settings.workDays;
-        const perMin = dailySal / activeWorkMinutes;
-        const earned = mins * perMin;
-
-        const newSession: SlackSession = {
-          id: Math.random().toString(36).substring(2, 9),
-          start: slackStart.toISOString(),
-          end: sEnd.toISOString(),
-          mins,
-          earned,
-        };
-
-        const updatedSessions = [...slackSessions, newSession];
-        setSlackSessions(updatedSessions);
-        storage.set(SLACK_KEY, updatedSessions);
-
-        // Update weekly Data cumulative minutes
-        const activeCumulative = updatedSessions.reduce((sum, s) => sum + s.mins, 0);
-        const newWeekData = { ...weeklyData, [getTodayStr()]: activeCumulative };
-        setWeeklyData(newWeekData);
-        storage.set(WEEK_KEY, newWeekData);
+        finalizeSlackSession(new Date());
+      } else {
+        setSlacking(false);
       }
-      setSlacking(false);
-      setSlackStart(null);
     }
   };
 
@@ -1633,7 +1602,6 @@ export default function App() {
             weeklyData={weeklyData}
             settings={settings}
             now={now}
-            isHoliday={isHoliday}
             punchInTime={punchInTime}
             punchOutTime={punchOutTime}
           />

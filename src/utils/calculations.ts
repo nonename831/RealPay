@@ -22,7 +22,12 @@ export function toMins(timeStr: string): number {
 }
 
 export function isSystem12Hour(): boolean {
-  return false;
+  try {
+    const hourCycle = new Intl.DateTimeFormat(undefined, { hour: "numeric" }).resolvedOptions().hourCycle;
+    return hourCycle === "h11" || hourCycle === "h12";
+  } catch {
+    return false;
+  }
 }
 
 export function fromMins(mins: number): string {

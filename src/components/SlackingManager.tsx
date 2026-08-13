@@ -10,7 +10,7 @@ import {
   Cell,
 } from "recharts";
 import { SlackSession, AppSettings } from "../types";
-import { fmtMinsChinese, toMins } from "../utils/calculations";
+import { toMins } from "../utils/calculations";
 
 interface SlackingManagerProps {
   slacking: boolean;
@@ -24,7 +24,6 @@ interface SlackingManagerProps {
   weeklyData: { [date: string]: number };
   settings: AppSettings;
   now: Date;
-  isHoliday: boolean;
   punchInTime: Date | null;
   punchOutTime: Date | null;
 }
@@ -90,7 +89,6 @@ export default function SlackingManager({
   weeklyData,
   settings,
   now,
-  isHoliday,
   punchInTime,
   punchOutTime,
 }: SlackingManagerProps) {
@@ -176,10 +174,8 @@ export default function SlackingManager({
     return "low";
   };
 
-  // Achievement Checkers (Checks if already in the permanent set, or if conditions are met today)
-  const isUnlocked = (achId: string) => {
-    if (unlockedAchs.includes(achId)) return true;
-
+  // Achievement condition checks, shared by the display logic and the unlock-sync effect below.
+  const isAchievementMet = (achId: string): boolean => {
     switch (achId) {
       case "first_slack":
         return slackSessions.length > 0 || slacking;
@@ -192,9 +188,9 @@ export default function SlackingManager({
       case "slack_180":
         return totalSlackMins >= 180;
       case "early_bird":
-        return slackSessions.some(s => new Date(s.start).getHours() < 9) || (slacking && slackStart && slackStart.getHours() < 9);
+        return slackSessions.some(s => new Date(s.start).getHours() < 9) || !!(slacking && slackStart && slackStart.getHours() < 9);
       case "night_owl":
-        return slackSessions.some(s => new Date(s.start).getHours() >= 18) || (slacking && slackStart && slackStart.getHours() >= 18);
+        return slackSessions.some(s => new Date(s.start).getHours() >= 18) || !!(slacking && slackStart && slackStart.getHours() >= 18);
       case "multi_session":
         return slackSessions.length >= 3;
       default:
@@ -202,33 +198,13 @@ export default function SlackingManager({
     }
   };
 
+  // Checks if already in the permanent set, or if conditions are met today
+  const isUnlocked = (achId: string) => unlockedAchs.includes(achId) || isAchievementMet(achId);
+
   // Sync newly unlocked achievements to persistent local storage
   useEffect(() => {
-    const isMatched = (achId: string) => {
-      switch (achId) {
-        case "first_slack":
-          return slackSessions.length > 0 || slacking;
-        case "slack_30":
-          return totalSlackMins >= 30;
-        case "slack_60":
-          return totalSlackMins >= 60;
-        case "slack_120":
-          return totalSlackMins >= 120;
-        case "slack_180":
-          return totalSlackMins >= 180;
-        case "early_bird":
-          return slackSessions.some(s => new Date(s.start).getHours() < 9) || (slacking && slackStart && slackStart.getHours() < 9);
-        case "night_owl":
-          return slackSessions.some(s => new Date(s.start).getHours() >= 18) || (slacking && slackStart && slackStart.getHours() >= 18);
-        case "multi_session":
-          return slackSessions.length >= 3;
-        default:
-          return false;
-      }
-    };
-
     const freshUnlockedList = ACHIEVEMENTS.filter(a => {
-      return unlockedAchs.includes(a.id) || isMatched(a.id);
+      return unlockedAchs.includes(a.id) || isAchievementMet(a.id);
     }).map(a => a.id);
 
     // Only update if there is a new unlocked achievement
@@ -270,8 +246,6 @@ export default function SlackingManager({
     return weeklyData[dateStr] || 0;
   });
 
-  const maxVal = Math.max(...weekValues, slackGoalMins, 10);
-
   const chartData = days.map((day, i) => {
     const val = weekValues[i];
     const isToday = i === dayOfWeekIndex;
@@ -289,6 +263,7 @@ export default function SlackingManager({
   const isPunchInOk = !!punchInTime;
   const isPunchOutOk = !!punchOutTime;
   const cannotSlack = !isPunchInOk || isPunchOutOk;
+  const isAfterWork = isPunchOutOk || nowM >= endM;
 
   return (
     <div className="space-y-4">
@@ -300,7 +275,7 @@ export default function SlackingManager({
             className={`dot ${slacking ? "working" : "off"}`}
             style={slacking ? { backgroundColor: "#a78bfa" } : undefined}
           />
-          <span>{slacking ? "摸鱼中" : (slackSessions.length > 0 ? "已结束" : "未开始")}</span>
+          <span>{slacking ? "摸鱼中" : (isAfterWork ? "已下班" : (slackSessions.length > 0 ? "已结束" : "未开始"))}</span>
         </div>
       </div>
 

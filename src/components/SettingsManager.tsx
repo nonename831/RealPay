@@ -2,7 +2,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { AppSettings, MonthHistory } from "../types";
 import { fmt12, toMins } from "../utils/calculations";
-import AutoPunchMap from "./AutoPunchMap";
+import AutoPunchMap, { DEFAULT_GEOFENCE_RADIUS_KM } from "./AutoPunchMap";
 
 const WEEKDAY_OPTIONS = [
   { value: 0, label: "日" },
@@ -60,8 +60,7 @@ export default function SettingsManager({
     });
     // Visual auto-save feedback
     setShowSavedIndicator(true);
-    const t = setTimeout(() => setShowSavedIndicator(false), 1200);
-    return () => clearTimeout(t);
+    setTimeout(() => setShowSavedIndicator(false), 1200);
   };
 
   const handleQuery = () => {
@@ -445,8 +444,12 @@ export default function SettingsManager({
       <div className="settings-card space-y-3.5">
         <div className="flex items-center justify-between pb-1 select-none">
           <div>
-            <span className="text-xs font-bold text-neutral-200 block">启用1km范围自动打卡</span>
-            <span className="text-[10px] text-neutral-400 block mt-0.5">当检测到您处于公司 1 公里以内时自动签到上班、签退下班</span>
+            <span className="text-xs font-bold text-neutral-200 block">
+              启用 {(settings.companyRadius ?? DEFAULT_GEOFENCE_RADIUS_KM).toFixed(1)}km 范围自动打卡
+            </span>
+            <span className="text-[10px] text-neutral-400 block mt-0.5">
+              当检测到您处于公司 {(settings.companyRadius ?? DEFAULT_GEOFENCE_RADIUS_KM).toFixed(1)} 公里以内时自动签到上班、签退下班（范围可在下方地图区块调整）
+            </span>
           </div>
           <label htmlFor="auto-punch-toggle" className="inline-flex items-center cursor-pointer select-none shrink-0 ml-4">
             <input

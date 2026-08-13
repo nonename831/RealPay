@@ -13,7 +13,7 @@ export interface AppSettings {
   companyAddress?: string;
   companyLat?: number;
   companyLng?: number;
-  companyRadius?: number; // Geofence radius in km, default 2.0
+  companyRadius?: number; // Geofence radius in km, default 1.0 (see DEFAULT_GEOFENCE_RADIUS_KM)
   googleMapsApiKey?: string;
 }
 
